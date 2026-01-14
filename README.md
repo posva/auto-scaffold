@@ -44,18 +44,18 @@ Example `.scaffold/component.vue`:
 
 ```ts
 // vite.config.ts
-import AutoScaffold from "auto-scaffold/vite";
+import AutoScaffold from 'auto-scaffold/vite'
 
 export default defineConfig({
   plugins: [
     AutoScaffold({
       // Optional: customize watched folders (default: ['src/components'])
-      watchDirs: ["src/components", "src/views"],
+      watchDirs: ['src/components', 'src/views'],
       // Optional: inline templates (merged with .scaffold/ files)
-      templates: [{ extension: ".vue", template: "<template></template>" }],
+      templates: [{ extension: '.vue', template: '<template></template>' }],
     }),
   ],
-});
+})
 ```
 
 <br></details>
@@ -66,23 +66,23 @@ export default defineConfig({
 ```ts
 // nuxt.config.ts
 export default defineNuxtConfig({
-  modules: ["auto-scaffold/nuxt"],
+  modules: ['auto-scaffold/nuxt'],
   autoScaffold: {
-    watchDirs: ["components"],
+    watchDirs: ['components'],
   },
-});
+})
 ```
 
 <br></details>
 
 ## Options
 
-| Option       | Type               | Default             | Description                               |
-| ------------ | ------------------ | ------------------- | ----------------------------------------- |
-| `watchDirs`  | `string[]`         | `['src/components']`| Folders to watch for new files            |
-| `scaffoldDir`| `string`           | `'.scaffold'`       | Directory containing template files       |
-| `templates`  | `TemplateConfig[]` | `[]`                | Inline template configurations            |
-| `enabled`    | `boolean`          | `true`              | Enable/disable the plugin                 |
+| Option        | Type               | Default              | Description                         |
+| ------------- | ------------------ | -------------------- | ----------------------------------- |
+| `watchDirs`   | `string[]`         | `['src/components']` | Folders to watch for new files      |
+| `scaffoldDir` | `string`           | `'.scaffold'`        | Directory containing template files |
+| `templates`   | `TemplateConfig[]` | `[]`                 | Inline template configurations      |
+| `enabled`     | `boolean`          | `true`               | Enable/disable the plugin           |
 
 ## How It Works
 
