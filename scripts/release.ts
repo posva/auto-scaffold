@@ -1,5 +1,5 @@
 import fs from 'node:fs/promises'
-import { existsSync, globSync } from 'node:fs'
+import { existsSync } from 'node:fs'
 import { dirname, join, relative } from 'node:path'
 import { parseArgs } from 'node:util'
 import { fileURLToPath } from 'node:url'
@@ -56,18 +56,13 @@ Flags:
 //   (semver.prerelease(currentVersion) && semver.prerelease(currentVersion)[0])
 const EXPECTED_BRANCH = 'main'
 // this package will use tags like v1.0.0 while the rest will use the full package name like @pinia/testing@1.0.0
-const MAIN_PKG_NAME = '@pinia/colada'
+const MAIN_PKG_NAME = 'auto-scaffold'
 // whether the main package is at the root of the mono repo or true if this is not a mono repo
 const IS_MAIN_PKG_AT_ROOT = true
 // array of folders of packages to release
 const PKG_FOLDERS = [
-  // @pinia/colada
+  // auto-scaffold
   join(__dirname, '..'),
-  // @pinia/colada-nuxt
-  join(__dirname, '../nuxt'),
-  // @pinia/colada-devtools
-  join(__dirname, '../devtools'),
-  ...globSync(join(__dirname, '../plugins/*/')),
 ]
 
 // files to add and commit after building a new version
@@ -76,15 +71,6 @@ const FILES_TO_COMMIT = [
   'package.json',
   'pnpm-lock.yaml',
   'CHANGELOG.md',
-  // plugins
-  'plugins/*/package.json',
-  'plugins/*/CHANGELOG.md',
-  // devtools
-  'devtools/package.json',
-  'devtools/CHANGELOG.md',
-  // nuxt
-  'nuxt/package.json',
-  'nuxt/CHANGELOG.md',
 ]
 
 const run = (bin: string, args: string[], opts: ExecaOptions = {}) =>
