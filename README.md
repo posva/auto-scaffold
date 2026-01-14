@@ -10,6 +10,7 @@ Dev-only plugin that automatically populates empty files with templates when the
 - Auto-populate with configurable templates
 - Support for any file extension (.vue, .ts, .tsx, etc.)
 - Templates stored in `.scaffold/` folder
+- Built-in presets for common project structures
 - Dev-only - doesn't run during builds
 
 ## Install
@@ -52,6 +53,8 @@ export default defineConfig({
     AutoScaffold({
       // Optional: change scaffold directory (default: '.scaffold')
       scaffoldDir: '.scaffold',
+      // Optional: use built-in presets
+      // presets: ['vue', 'pinia'],
     }),
   ],
 })
@@ -68,25 +71,40 @@ export default defineNuxtConfig({
   modules: ['auto-scaffold/nuxt'],
   autoScaffold: {
     scaffoldDir: '.scaffold',
+    // presets: ['vue-router'],
   },
 })
 ```
 
 <br></details>
 
+## Presets
+
+Built-in presets provide templates without requiring a local `.scaffold/` folder.
+Later presets override earlier ones, and user templates (from `.scaffold/`) always win.
+
+Available presets:
+
+- `vue` (components)
+- `vue-router` (pages)
+- `pinia` (stores)
+- `pinia-colada` (queries)
+
 ## Options
 
-| Option        | Type      | Default       | Description                         |
-| ------------- | --------- | ------------- | ----------------------------------- |
-| `scaffoldDir` | `string`  | `'.scaffold'` | Directory containing template files |
-| `enabled`     | `boolean` | `true`        | Enable/disable the plugin           |
+| Option        | Type                           | Default       | Description                                        |
+| ------------- | ------------------------------ | ------------- | -------------------------------------------------- |
+| `scaffoldDir` | `string`                       | `'.scaffold'` | Directory containing template files                |
+| `enabled`     | `boolean`                      | `true`        | Enable/disable the plugin                          |
+| `presets`     | `PresetName` or `PresetName[]` | `[]`          | Built-in presets to apply (later presets override) |
 
 ## How It Works
 
 1. When the dev server starts, auto-scaffold loads templates from `.scaffold/` folder
 2. It watches the inferred directories for file changes
-3. When an empty file is created (0 bytes), it matches the extension to a template
-4. The template content is automatically written to the file
+3. When an empty file is created (0 bytes), it matches the path to a template
+4. If multiple templates match, the most specific pattern wins
+5. The template content is automatically written to the file
 
 ## License
 
