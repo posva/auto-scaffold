@@ -5,20 +5,20 @@
   "packageManager": "pnpm@10.28.0",
   "description": "",
   "license": "MIT",
-  "homepage": "https://github.com/antfu/unplugin-starter#readme",
+  "homepage": "https://github.com/posva/auto-scaffold#readme",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/antfu/unplugin-starter.git"
+    "url": "git+https://github.com/posva/auto-scaffold.git"
   },
   "bugs": {
-    "url": "https://github.com/antfu/unplugin-starter/issues"
+    "url": "https://github.com/posva/auto-scaffold/issues"
   },
   "keywords": [
     "unplugin",
     "vite",
-    "webpack",
-    "rollup",
-    "transform"
+    "scaffold",
+    "template",
+    "dev-tools"
   ],
   "exports": {
     ".": "./dist/index.js",
