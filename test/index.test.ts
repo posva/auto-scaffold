@@ -134,17 +134,16 @@ describe('core', () => {
   describe('resolveOptions', () => {
     it('uses defaults when no options provided', () => {
       const resolved = resolveOptions()
-      expect(resolved.watchDirs).toBeUndefined()
       expect(resolved.scaffoldDir).toBe('.scaffold')
       expect(resolved.enabled).toBe(true)
     })
 
     it('merges user options with defaults', () => {
       const resolved = resolveOptions({
-        watchDirs: ['src/views'],
+        scaffoldDir: 'scaffold',
         enabled: false,
       })
-      expect(resolved.watchDirs).toEqual(['src/views'])
+      expect(resolved.scaffoldDir).toBe('scaffold')
       expect(resolved.enabled).toBe(false)
     })
   })
@@ -260,7 +259,7 @@ describe('e2e', () => {
     const templates = await loadTemplatesFromDir('.scaffold', tempDir)
     expect(templates).toHaveLength(1)
 
-    // Setup options (watchDirs inferred from templates)
+    // Setup options
     const options = resolveOptions()
 
     // Start watchers

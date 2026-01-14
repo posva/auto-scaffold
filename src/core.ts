@@ -8,7 +8,6 @@ import { inferWatchDirs, matchFile, parseTemplatePath } from './patterns'
 
 export function resolveOptions(options: Options = {}): ResolvedOptions {
   return {
-    watchDirs: options.watchDirs,
     scaffoldDir: options.scaffoldDir ?? '.scaffold',
     enabled: options.enabled ?? true,
   }
@@ -99,8 +98,7 @@ export function startWatchers(
   const usePolling = process.env.NODE_ENV === 'test' || Boolean(process.env.VITEST)
   const initialFiles = new Set<string>()
 
-  // Infer watch dirs from templates if not explicitly provided
-  const watchDirs = options.watchDirs ?? inferWatchDirs(templates)
+  const watchDirs = inferWatchDirs(templates)
 
   for (const watchDir of watchDirs) {
     const dir = resolve(root, watchDir)

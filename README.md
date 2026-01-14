@@ -6,10 +6,10 @@ Dev-only plugin that automatically populates empty files with templates when the
 
 ## Features
 
-- Watch folders for new empty files
+- Watch folders for new empty files (inferred from templates)
 - Auto-populate with configurable templates
 - Support for any file extension (.vue, .ts, .tsx, etc.)
-- Templates stored in `.scaffold/` folder or inline config
+- Templates stored in `.scaffold/` folder
 - Dev-only - doesn't run during builds
 
 ## Install
@@ -50,10 +50,8 @@ import AutoScaffold from 'auto-scaffold/vite'
 export default defineConfig({
   plugins: [
     AutoScaffold({
-      // Optional: customize watched folders (default: ['src/components'])
-      watchDirs: ['src/components', 'src/views'],
-      // Optional: inline templates (merged with .scaffold/ files)
-      templates: [{ extension: '.vue', template: '<template></template>' }],
+      // Optional: change scaffold directory (default: '.scaffold')
+      scaffoldDir: '.scaffold',
     }),
   ],
 })
@@ -69,7 +67,7 @@ export default defineConfig({
 export default defineNuxtConfig({
   modules: ['auto-scaffold/nuxt'],
   autoScaffold: {
-    watchDirs: ['components'],
+    scaffoldDir: '.scaffold',
   },
 })
 ```
@@ -78,17 +76,15 @@ export default defineNuxtConfig({
 
 ## Options
 
-| Option        | Type               | Default              | Description                         |
-| ------------- | ------------------ | -------------------- | ----------------------------------- |
-| `watchDirs`   | `string[]`         | `['src/components']` | Folders to watch for new files      |
-| `scaffoldDir` | `string`           | `'.scaffold'`        | Directory containing template files |
-| `templates`   | `TemplateConfig[]` | `[]`                 | Inline template configurations      |
-| `enabled`     | `boolean`          | `true`               | Enable/disable the plugin           |
+| Option        | Type      | Default       | Description                         |
+| ------------- | --------- | ------------- | ----------------------------------- |
+| `scaffoldDir` | `string`  | `'.scaffold'` | Directory containing template files |
+| `enabled`     | `boolean` | `true`        | Enable/disable the plugin           |
 
 ## How It Works
 
 1. When the dev server starts, auto-scaffold loads templates from `.scaffold/` folder
-2. It watches the configured directories for file changes
+2. It watches the inferred directories for file changes
 3. When an empty file is created (0 bytes), it matches the extension to a template
 4. The template content is automatically written to the file
 
