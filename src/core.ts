@@ -89,13 +89,60 @@ export function findTemplateForFile(
   filePath: string,
   templates: ParsedTemplate[],
 ): ParsedTemplate | undefined {
+  let bestTemplate: ParsedTemplate | undefined
+  let bestSpecificity: number[] | undefined
+
   for (const template of templates) {
     const match = matchFile(filePath, template)
     if (match !== null) {
-      return template
+      const specificity = getTemplateSpecificity(template)
+      if (!bestSpecificity || compareSpecificity(specificity, bestSpecificity) > 0) {
+        bestTemplate = template
+        bestSpecificity = specificity
+      }
     }
   }
-  return undefined
+  return bestTemplate
+}
+
+function getTemplateSpecificity(template: ParsedTemplate): number[] {
+  let staticDirParts = 0
+  let staticFilenameParts = 0
+  let paramParts = 0
+  let spreadParts = 0
+
+  for (const segment of template.segments) {
+    if (segment.type === 'static') {
+      staticDirParts++
+    } else if (segment.type === 'param') {
+      paramParts++
+    } else {
+      spreadParts++
+    }
+  }
+
+  for (const part of template.filename) {
+    if (part.type === 'static') {
+      staticFilenameParts++
+    } else if (part.type === 'param') {
+      paramParts++
+    } else {
+      spreadParts++
+    }
+  }
+
+  const isFullyStatic = paramParts === 0 && spreadParts === 0 ? 1 : 0
+
+  return [isFullyStatic, staticDirParts, staticFilenameParts, -spreadParts, -paramParts]
+}
+
+function compareSpecificity(a: number[], b: number[]): number {
+  for (let i = 0; i < a.length; i++) {
+    if (a[i] !== b[i]) {
+      return a[i] - b[i]
+    }
+  }
+  return 0
 }
 
 /**
