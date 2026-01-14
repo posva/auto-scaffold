@@ -1,3 +1,13 @@
+## [0.1.1](https://github.com/posva/auto-scaffold/compare/v0.1.0...v0.1.1) (2026-01-14)
+
+### Features
+
+- remove redundant optionss ([4b7d33c](https://github.com/posva/auto-scaffold/commit/4b7d33cb0735616bf814000ed5cb2a45fe6f219f))
+
+### Performance Improvements
+
+- use sync ([bbae161](https://github.com/posva/auto-scaffold/commit/bbae1611aab8a0c6cad9090e123f9cae632fbd8b))
+
 # 0.1.0 (2026-01-14)
 
 ### Bug Fixes
