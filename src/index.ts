@@ -2,7 +2,7 @@ import type { UnpluginFactory } from 'unplugin'
 import type { Options } from './types'
 import type { WatcherContext } from './core'
 import { createUnplugin } from 'unplugin'
-import { loadTemplatesFromDir, resolveOptions, startWatchers } from './core'
+import { loadTemplates, resolveOptions, startWatchers } from './core'
 
 export const unpluginFactory: UnpluginFactory<Options | undefined> = (options) => {
   let watcherContext: WatcherContext | null = null
@@ -25,7 +25,7 @@ export const unpluginFactory: UnpluginFactory<Options | undefined> = (options) =
         }
 
         // Load templates from .scaffold folder
-        const templates = await loadTemplatesFromDir(resolved.scaffoldDir, root)
+        const templates = await loadTemplates(resolved, root)
 
         if (templates.length === 0) {
           server.config.logger.warn(

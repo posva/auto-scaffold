@@ -5,6 +5,7 @@ import type { FSWatcher } from 'chokidar'
 import chokidar from 'chokidar'
 import { join, relative, resolve } from 'pathe'
 import { inferWatchDirs, matchFile, parseTemplatePath } from './patterns'
+import { normalizePresetList, resolvePresetScaffoldDirs } from './presets'
 
 /**
  * Apply defaults to user options.
@@ -12,6 +13,7 @@ import { inferWatchDirs, matchFile, parseTemplatePath } from './patterns'
 export function resolveOptions(options: Options = {}): ResolvedOptions {
   return {
     scaffoldDir: options.scaffoldDir ?? '.scaffold',
+    presets: normalizePresetList(options.presets),
     enabled: options.enabled ?? true,
   }
 }
@@ -53,6 +55,31 @@ export async function loadTemplatesFromDir(
   }
 
   return templates
+}
+
+/**
+ * Load templates from presets (in order) and the user scaffold directory.
+ */
+export async function loadTemplates(
+  options: ResolvedOptions,
+  root: string,
+): Promise<ParsedTemplate[]> {
+  const userTemplates = await loadTemplatesFromDir(options.scaffoldDir, root)
+  if (options.presets.length === 0) {
+    return userTemplates
+  }
+
+  const presetDirs = resolvePresetScaffoldDirs(options.presets)
+  const presetTemplates = (
+    await Promise.all(
+      presetDirs
+        .slice()
+        .reverse()
+        .map((presetDir) => loadTemplatesFromDir(presetDir, root)),
+    )
+  ).flat()
+
+  return [...userTemplates, ...presetTemplates]
 }
 
 /**
