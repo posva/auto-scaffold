@@ -1,3 +1,17 @@
+# [0.2.0](https://github.com/posva/auto-scaffold/compare/v0.1.1...v0.2.0) (2026-01-14)
+
+### Bug Fixes
+
+- flaky test and deduplicate scanDirSync ([4d3e98a](https://github.com/posva/auto-scaffold/commit/4d3e98a0227c890e214a1e05962074579df5f5a8))
+- read scaffold template content dynamically ([74928a8](https://github.com/posva/auto-scaffold/commit/74928a83d7c01b29a207ae850603a8824e14a12b))
+- template specificity ([dc8cbad](https://github.com/posva/auto-scaffold/commit/dc8cbadc3bdd015a0a702df9f30ee5ffd223b766))
+
+### Features
+
+- add PresetName type and presets option ([b6394df](https://github.com/posva/auto-scaffold/commit/b6394dfcc4844b4885b017ee4c916de9babf897b))
+- add presets loading and merging ([246fd40](https://github.com/posva/auto-scaffold/commit/246fd404c3a7e1e5932087ba01076e411b7ec970))
+- wire preset loading into unplugin factory ([88924dc](https://github.com/posva/auto-scaffold/commit/88924dc8672c7ec92dd0ca68dc98a2bae3ef7c33))
+
 ## [0.1.1](https://github.com/posva/auto-scaffold/compare/v0.1.0...v0.1.1) (2026-01-14)
 
 ### Features
