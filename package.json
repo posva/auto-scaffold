@@ -50,7 +50,9 @@
   "scripts": {
     "build": "tsdown",
     "dev": "tsdown -w",
-    "lint": "eslint .",
+    "lint": "oxlint",
+    "format": "oxfmt --write .",
+    "format:check": "oxfmt --check .",
     "play": "npm -C playground run dev",
     "prepublishOnly": "npm run build",
     "release": "bumpp && pnpm publish",
@@ -93,13 +95,13 @@
     "unplugin": "^2.3.11"
   },
   "devDependencies": {
-    "@antfu/eslint-config": "^4.13.2",
     "@nuxt/kit": "^4.2.2",
     "@nuxt/schema": "^4.2.2",
     "@types/node": "^25.0.8",
     "bumpp": "^10.1.1",
-    "eslint": "^9.27.0",
     "nodemon": "^3.1.10",
+    "oxfmt": "^0.24.0",
+    "oxlint": "^1.39.0",
     "rollup": "^4.41.0",
     "tsdown": "0.20.0-beta.3",
     "tsx": "^4.19.4",
