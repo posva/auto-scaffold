@@ -1,6 +1,7 @@
 import type { Options, ResolvedOptions } from './types'
 import type { ParsedTemplate } from './patterns'
 import { existsSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs'
+import { readdir } from 'node:fs/promises'
 import type { FSWatcher } from 'chokidar'
 import chokidar from 'chokidar'
 import { join, relative, resolve } from 'pathe'
@@ -14,20 +15,36 @@ export function resolveOptions(options: Options = {}): ResolvedOptions {
   }
 }
 
-function scanDirSync(dir: string, base: string): string[] {
+/**
+ * Recursively scan a directory and return all file paths relative to the base
+ */
+async function scanDir(dir: string, base: string): Promise<string[]> {
   const files: string[] = []
-  const entries = readdirSync(dir, { withFileTypes: true })
+  const entries = await readdir(dir, { withFileTypes: true })
 
   for (const entry of entries) {
     const fullPath = join(dir, entry.name)
     if (entry.isDirectory()) {
-      files.push(...scanDirSync(fullPath, base))
+      files.push(...(await scanDir(fullPath, base)))
     } else if (entry.isFile()) {
       files.push(relative(base, fullPath))
     }
   }
 
   return files
+}
+
+function scanDirSync(dir: string, base: string, files: string[]): void {
+  const entries = readdirSync(dir, { withFileTypes: true })
+
+  for (const entry of entries) {
+    const fullPath = join(dir, entry.name)
+    if (entry.isDirectory()) {
+      scanDirSync(fullPath, base, files)
+    } else if (entry.isFile()) {
+      files.push(relative(base, fullPath))
+    }
+  }
 }
 
 /**
@@ -42,7 +59,7 @@ export async function loadTemplatesFromDir(
     return []
   }
 
-  const files = scanDirSync(dir, dir)
+  const files = await scanDir(dir, dir)
   const templates: ParsedTemplate[] = []
 
   for (const file of files) {
@@ -84,6 +101,7 @@ export async function applyTemplate(filePath: string, template: ParsedTemplate):
 
 export interface WatcherContext {
   watchers: FSWatcher[]
+  ready: Promise<void>
   stop: () => Promise<void>
 }
 
@@ -94,8 +112,9 @@ export function startWatchers(
   log: (msg: string) => void,
 ): WatcherContext {
   const watchers: FSWatcher[] = []
-  const startTime = Date.now()
+  const readyPromises: Promise<void>[] = []
   const usePolling = process.env.NODE_ENV === 'test' || Boolean(process.env.VITEST)
+  const initialFiles = new Set<string>()
 
   // Infer watch dirs from templates if not explicitly provided
   const watchDirs = options.watchDirs ?? inferWatchDirs(templates)
@@ -106,29 +125,41 @@ export function startWatchers(
       continue
     }
 
+    const existingFiles: string[] = []
+    scanDirSync(dir, root, existingFiles)
+    for (const file of existingFiles) {
+      initialFiles.add(file)
+    }
+
     const watcher = chokidar.watch(dir, {
       ignoreInitial: false,
       usePolling,
-      awaitWriteFinish: {
-        stabilityThreshold: 100,
-        pollInterval: 50,
-      },
+      depth: 99,
+      ...(usePolling
+        ? {}
+        : {
+            awaitWriteFinish: {
+              stabilityThreshold: 100,
+              pollInterval: 50,
+            },
+          }),
     })
+    readyPromises.push(
+      new Promise((resolve) => {
+        watcher.once('ready', resolve)
+      }),
+    )
 
     watcher.on('add', async (filePath) => {
-      let stats
-      try {
-        stats = statSync(filePath)
-      } catch {
-        return
-      }
-
-      const isNewFile = stats.birthtimeMs >= startTime || stats.ctimeMs >= startTime
-      if (!isNewFile || stats.size !== 0) {
-        return
-      }
-
       const relativePath = relative(root, filePath)
+      if (initialFiles.has(relativePath)) {
+        return
+      }
+
+      if (!isFileEmpty(filePath)) {
+        return
+      }
+
       const template = findTemplateForFile(relativePath, templates)
       if (!template) {
         return
@@ -139,11 +170,17 @@ export function startWatchers(
       await applyTemplate(filePath, template)
     })
 
+    watcher.on('unlink', (filePath) => {
+      const relativePath = relative(root, filePath)
+      initialFiles.delete(relativePath)
+    })
+
     watchers.push(watcher)
   }
 
   return {
     watchers,
+    ready: Promise.all(readyPromises).then(() => undefined),
     stop: async () => {
       await Promise.all(watchers.map((watcher) => watcher.close()))
     },
