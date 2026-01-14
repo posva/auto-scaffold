@@ -1,7 +1,24 @@
-import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+
+/**
+ * Wait for a file to have non-empty content.
+ */
+async function waitForFileContent(filePath: string, timeout = 2000): Promise<string> {
+  const start = Date.now()
+  while (Date.now() - start < timeout) {
+    try {
+      const stat = statSync(filePath)
+      if (stat.size > 0) {
+        return readFileSync(filePath, 'utf-8')
+      }
+    } catch {}
+    await new Promise((r) => setTimeout(r, 50))
+  }
+  return readFileSync(filePath, 'utf-8')
+}
 import {
   applyTemplate,
   findTemplateForFile,
@@ -457,10 +474,10 @@ describe('e2e', () => {
     const testFile = join(componentsDir, 'Button.vue')
     writeFileSync(testFile, '')
 
-    await new Promise((resolve) => setTimeout(resolve, 500))
+    // Wait for file to be scaffolded (polling for slower CI environments)
+    const content = await waitForFileContent(testFile)
 
     // Verify preset template was applied
-    const content = readFileSync(testFile, 'utf-8')
     expect(content).toContain('<script setup')
     expect(log).toHaveBeenCalled()
 
