@@ -1,87 +1,84 @@
-import { extname, basename, dirname } from "node:path";
+import { extname, basename, dirname } from 'node:path'
 
 export interface PatternSegment {
-  type: "static" | "param" | "spread";
-  value: string;
+  type: 'static' | 'param' | 'spread'
+  value: string
 }
 
 export interface ParsedTemplate {
   /** Directory segments (e.g., ['src', 'components']) */
-  segments: PatternSegment[];
+  segments: PatternSegment[]
   /** Filename pattern parts before extension */
-  filename: PatternSegment[];
+  filename: PatternSegment[]
   /** File extension including dot (e.g., '.vue') */
-  extension: string;
+  extension: string
   /** Original template path relative to scaffold dir */
-  templatePath: string;
+  templatePath: string
   /** Template file content */
-  content: string;
+  content: string
 }
 
-const BRACKET_REGEX = /\[(?:\.\.\.)?([^\]]+)\]/g;
+const BRACKET_REGEX = /\[(?:\.\.\.)?([^\]]+)\]/g
 
 /**
  * Parse a single segment (directory or filename part) into PatternSegment(s)
  */
 function parseSegment(segment: string): PatternSegment[] {
-  const parts: PatternSegment[] = [];
-  let lastIndex = 0;
+  const parts: PatternSegment[] = []
+  let lastIndex = 0
 
   for (const match of segment.matchAll(BRACKET_REGEX)) {
     // Add static part before this match
     if (match.index! > lastIndex) {
       parts.push({
-        type: "static",
+        type: 'static',
         value: segment.slice(lastIndex, match.index),
-      });
+      })
     }
 
-    const isSpread = match[0].startsWith("[...");
+    const isSpread = match[0].startsWith('[...')
     parts.push({
-      type: isSpread ? "spread" : "param",
+      type: isSpread ? 'spread' : 'param',
       value: match[1],
-    });
+    })
 
-    lastIndex = match.index! + match[0].length;
+    lastIndex = match.index! + match[0].length
   }
 
   // Add remaining static part
   if (lastIndex < segment.length) {
     parts.push({
-      type: "static",
+      type: 'static',
       value: segment.slice(lastIndex),
-    });
+    })
   }
 
   // If no brackets found, entire segment is static
   if (parts.length === 0) {
-    parts.push({ type: "static", value: segment });
+    parts.push({ type: 'static', value: segment })
   }
 
-  return parts;
+  return parts
 }
 
 /**
  * Parse a template file path into a ParsedTemplate structure
  */
-export function parseTemplatePath(
-  relativePath: string,
-  content: string
-): ParsedTemplate {
-  const ext = extname(relativePath);
-  const dir = dirname(relativePath);
-  const file = basename(relativePath, ext);
+export function parseTemplatePath(relativePath: string, content: string): ParsedTemplate {
+  const ext = extname(relativePath)
+  const dir = dirname(relativePath)
+  const file = basename(relativePath, ext)
 
   // Parse directory segments
-  const segments: PatternSegment[] = [];
-  if (dir && dir !== ".") {
-    for (const seg of dir.split("/")) {
-      segments.push(...parseSegment(seg));
+  const segments: PatternSegment[] = []
+  if (dir && dir !== '.') {
+    for (const seg of dir.split('/')) {
+      segments.push(...parseSegment(seg))
     }
   }
 
   // Parse filename (without extension)
-  const filename = parseSegment(file);
+  const filename = parseSegment(file)
 
   return {
     segments,
@@ -89,80 +86,74 @@ export function parseTemplatePath(
     extension: ext,
     templatePath: relativePath,
     content,
-  };
+  }
 }
 
 /**
  * Check if a single segment matches a pattern segment
  * Returns captured value or null if no match
  */
-function matchSegmentPart(
-  value: string,
-  pattern: PatternSegment
-): string | null {
-  if (pattern.type === "static") {
-    return value === pattern.value ? "" : null;
+function matchSegmentPart(value: string, pattern: PatternSegment): string | null {
+  if (pattern.type === 'static') {
+    return value === pattern.value ? '' : null
   }
   // param or spread - capture the value
-  return value;
+  return value
 }
 
 /**
  * Match filename against filename pattern parts
  * Returns captures or null if no match
  */
-function matchFilename(
-  filename: string,
-  pattern: PatternSegment[]
-): Record<string, string> | null {
-  const captures: Record<string, string> = {};
+function matchFilename(filename: string, pattern: PatternSegment[]): Record<string, string> | null {
+  const captures: Record<string, string> = {}
 
   // Build regex from pattern
-  let regexStr = "^";
-  const paramNames: { name: string; type: "param" | "spread" }[] = [];
+  let regexStr = '^'
+  const paramNames: { name: string; type: 'param' | 'spread' }[] = []
 
   for (const part of pattern) {
-    if (part.type === "static") {
-      regexStr += escapeRegex(part.value);
-    } else if (part.type === "param") {
-      regexStr += "([^/]+)";
-      paramNames.push({ name: part.value, type: "param" });
+    if (part.type === 'static') {
+      regexStr += escapeRegex(part.value)
+    } else if (part.type === 'param') {
+      regexStr += '([^/]+)'
+      paramNames.push({ name: part.value, type: 'param' })
     } else {
       // spread in filename - matches the remaining filename part
-      regexStr += "(.+)";
-      paramNames.push({ name: part.value, type: "spread" });
+      regexStr += '(.+)'
+      paramNames.push({ name: part.value, type: 'spread' })
     }
   }
-  regexStr += "$";
+  regexStr += '$'
 
-  const regex = new RegExp(regexStr);
-  const match = filename.match(regex);
+  const regex = new RegExp(regexStr)
+  const match = filename.match(regex)
 
-  if (!match) return null;
+  if (!match) return null
 
   for (let i = 0; i < paramNames.length; i++) {
-    captures[paramNames[i].name] = match[i + 1];
+    captures[paramNames[i].name] = match[i + 1]
   }
 
-  return captures;
+  return captures
 }
 
 function escapeRegex(str: string): string {
-  return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 }
 
 /**
  * Get the static prefix path from a parsed template (directories before any dynamic segment)
  */
 export function getStaticPrefix(template: ParsedTemplate): string {
-  const parts: string[] = [];
+  const parts: string[] = []
 
   for (const seg of template.segments) {
-    if (seg.type !== "static") break;
-    parts.push(seg.value);
+    if (seg.type !== 'static') break
+    parts.push(seg.value)
   }
 
-  return parts.join("/");
+  return parts.join('/')
 }
 
 /**
@@ -174,114 +165,98 @@ export function getStaticPrefix(template: ParsedTemplate): string {
  */
 export function matchFile(
   filePath: string,
-  template: ParsedTemplate
+  template: ParsedTemplate,
 ): Record<string, string> | null {
-  const ext = extname(filePath);
+  const ext = extname(filePath)
 
   // Extension must match
-  if (ext !== template.extension) return null;
+  if (ext !== template.extension) return null
 
-  const dir = dirname(filePath);
-  const file = basename(filePath, ext);
-  const pathSegments = dir === "." ? [] : dir.split("/");
+  const dir = dirname(filePath)
+  const file = basename(filePath, ext)
+  const pathSegments = dir === '.' ? [] : dir.split('/')
 
-  const captures: Record<string, string> = {};
+  const captures: Record<string, string> = {}
 
   // Match directory segments
-  let pathIdx = 0;
-  let patternIdx = 0;
+  let pathIdx = 0
+  let patternIdx = 0
 
   while (patternIdx < template.segments.length) {
-    const pattern = template.segments[patternIdx];
+    const pattern = template.segments[patternIdx]
 
-    if (pattern.type === "static") {
-      if (
-        pathIdx >= pathSegments.length ||
-        pathSegments[pathIdx] !== pattern.value
-      ) {
-        return null;
+    if (pattern.type === 'static') {
+      if (pathIdx >= pathSegments.length || pathSegments[pathIdx] !== pattern.value) {
+        return null
       }
-      pathIdx++;
-      patternIdx++;
-    } else if (pattern.type === "param") {
+      pathIdx++
+      patternIdx++
+    } else if (pattern.type === 'param') {
       if (pathIdx >= pathSegments.length) {
-        return null;
+        return null
       }
-      captures[pattern.value] = pathSegments[pathIdx];
-      pathIdx++;
-      patternIdx++;
+      captures[pattern.value] = pathSegments[pathIdx]
+      pathIdx++
+      patternIdx++
     } else {
       // spread - consume remaining path segments (greedy, but leave room for remaining patterns)
-      const remainingPatterns = template.segments.slice(patternIdx + 1);
-      const staticCount = remainingPatterns.filter(
-        (p) => p.type === "static"
-      ).length;
+      const remainingPatterns = template.segments.slice(patternIdx + 1)
+      const staticCount = remainingPatterns.filter((p) => p.type === 'static').length
 
       // For spread in directory, we need to check if filename pattern has spread too
-      const filenameHasSpread = template.filename.some(
-        (p) => p.type === "spread"
-      );
+      const filenameHasSpread = template.filename.some((p) => p.type === 'spread')
 
       if (filenameHasSpread) {
         // Spread in both dir and filename - dir spread captures path segments,
         // filename spread captures nested path + filename
-        const consumed = pathSegments.slice(
-          pathIdx,
-          pathSegments.length - staticCount
-        );
-        captures[pattern.value] = consumed.join("/");
-        pathIdx = pathSegments.length - staticCount;
+        const consumed = pathSegments.slice(pathIdx, pathSegments.length - staticCount)
+        captures[pattern.value] = consumed.join('/')
+        pathIdx = pathSegments.length - staticCount
       } else {
         // Spread only in directory - capture remaining dirs
-        const consumed = pathSegments.slice(
-          pathIdx,
-          pathSegments.length - staticCount
-        );
-        captures[pattern.value] = consumed.join("/");
-        pathIdx = pathSegments.length - staticCount;
+        const consumed = pathSegments.slice(pathIdx, pathSegments.length - staticCount)
+        captures[pattern.value] = consumed.join('/')
+        pathIdx = pathSegments.length - staticCount
       }
-      patternIdx++;
+      patternIdx++
     }
   }
 
   // Check for spread in filename that captures remaining path
-  const filenameSpread = template.filename.find((p) => p.type === "spread");
+  const filenameSpread = template.filename.find((p) => p.type === 'spread')
 
   if (filenameSpread) {
     // Spread in filename captures: remaining path segments + filename
-    const remainingPath = pathSegments.slice(pathIdx);
-    const fullPath = [...remainingPath, file].join("/");
-    captures[filenameSpread.value] = fullPath;
+    const remainingPath = pathSegments.slice(pathIdx)
+    const fullPath = [...remainingPath, file].join('/')
+    captures[filenameSpread.value] = fullPath
 
     // Match other filename parts (static suffixes)
     const filenameCaptures = matchFilename(
       file,
-      template.filename.filter((p) => p.type === "static")
-    );
-    if (
-      filenameCaptures === null &&
-      template.filename.some((p) => p.type === "static")
-    ) {
+      template.filename.filter((p) => p.type === 'static'),
+    )
+    if (filenameCaptures === null && template.filename.some((p) => p.type === 'static')) {
       // Has static parts that didn't match
-      const staticParts = template.filename.filter((p) => p.type === "static");
+      const staticParts = template.filename.filter((p) => p.type === 'static')
       for (const part of staticParts) {
-        if (!file.includes(part.value)) return null;
+        if (!file.includes(part.value)) return null
       }
     }
 
-    return captures;
+    return captures
   }
 
   // All path segments should be consumed
   if (pathIdx !== pathSegments.length) {
-    return null;
+    return null
   }
 
   // Match filename
-  const filenameCaptures = matchFilename(file, template.filename);
-  if (filenameCaptures === null) return null;
+  const filenameCaptures = matchFilename(file, template.filename)
+  if (filenameCaptures === null) return null
 
-  return { ...captures, ...filenameCaptures };
+  return { ...captures, ...filenameCaptures }
 }
 
 /**
@@ -289,14 +264,14 @@ export function matchFile(
  * Returns unique directory prefixes that should be watched
  */
 export function inferWatchDirs(templates: ParsedTemplate[]): string[] {
-  const dirs = new Set<string>();
+  const dirs = new Set<string>()
 
   for (const template of templates) {
-    const prefix = getStaticPrefix(template);
+    const prefix = getStaticPrefix(template)
     if (prefix) {
-      dirs.add(prefix);
+      dirs.add(prefix)
     }
   }
 
-  return [...dirs];
+  return [...dirs]
 }

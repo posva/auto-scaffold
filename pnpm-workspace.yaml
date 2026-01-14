@@ -7,3 +7,4 @@ ignoredBuiltDependencies:
 
 onlyBuiltDependencies:
   - esbuild
+  - simple-git-hooks

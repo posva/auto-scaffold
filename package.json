@@ -51,12 +51,11 @@
     "build": "tsdown",
     "dev": "tsdown -w",
     "lint": "oxlint",
-    "format": "oxfmt --write .",
+    "format": "oxfmt . .github",
     "format:check": "oxfmt --check .",
     "play": "npm -C playground run dev",
     "prepublishOnly": "npm run build",
-    "release": "bumpp && pnpm publish",
-    "start": "tsx src/index.ts",
+    "start": "node src/index.ts",
     "test": "vitest"
   },
   "peerDependencies": {
@@ -97,17 +96,32 @@
   "devDependencies": {
     "@nuxt/kit": "^4.2.2",
     "@nuxt/schema": "^4.2.2",
+    "@posva/prompts": "^2.4.4",
     "@types/node": "^25.0.8",
-    "bumpp": "^10.1.1",
+    "@types/semver": "^7.7.1",
+    "chalk": "^5.6.2",
+    "execa": "^9.6.1",
+    "lint-staged": "^16.2.7",
     "nodemon": "^3.1.10",
     "oxfmt": "^0.24.0",
     "oxlint": "^1.39.0",
     "rollup": "^4.41.0",
+    "semver": "^7.7.3",
+    "simple-git-hooks": "^2.13.1",
     "tsdown": "0.20.0-beta.3",
-    "tsx": "^4.19.4",
     "typescript": "^5.9.3",
     "vite": "^7.3.1",
     "vitest": "^4.0.17",
     "webpack": "^5.99.9"
+  },
+  "simple-git-hooks": {
+    "pre-commit": "pnpm lint-staged",
+    "commit-msg": "node scripts/verifyCommit.js"
+  },
+  "lint-staged": {
+    "*.{js,mjs,json,cjs,md,ts,yml,tsx,jsx}": [
+      "oxfmt",
+      "oxlint --fix"
+    ]
   }
 }
