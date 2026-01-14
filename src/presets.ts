@@ -1,4 +1,4 @@
-import type { PresetName } from './types'
+import type { PresetName } from './entries/types'
 import type { ParsedTemplate } from './patterns'
 import { existsSync } from 'node:fs'
 import { dirname, join } from 'pathe'
