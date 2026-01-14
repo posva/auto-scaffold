@@ -6,6 +6,7 @@ import {
   applyTemplate,
   findTemplateForFile,
   isFileEmpty,
+  loadTemplates,
   loadTemplatesFromDir,
   resolveOptions,
   startWatchers,
@@ -135,15 +136,18 @@ describe('core', () => {
     it('uses defaults when no options provided', () => {
       const resolved = resolveOptions()
       expect(resolved.scaffoldDir).toBe('.scaffold')
+      expect(resolved.presets).toEqual([])
       expect(resolved.enabled).toBe(true)
     })
 
     it('merges user options with defaults', () => {
       const resolved = resolveOptions({
         scaffoldDir: 'scaffold',
+        presets: ['Vue', 'pinia colada'],
         enabled: false,
       })
       expect(resolved.scaffoldDir).toBe('scaffold')
+      expect(resolved.presets).toEqual(['vue', 'pinia-colada'])
       expect(resolved.enabled).toBe(false)
     })
   })
@@ -229,6 +233,40 @@ describe('core', () => {
     it('returns empty array if .scaffold does not exist', async () => {
       const templates = await loadTemplatesFromDir('.scaffold', tempDir)
       expect(templates).toEqual([])
+    })
+  })
+
+  describe('loadTemplates', () => {
+    let tempDir: string
+
+    beforeEach(() => {
+      tempDir = join(tmpdir(), `auto-scaffold-presets-${Date.now()}`)
+      mkdirSync(tempDir, { recursive: true })
+    })
+
+    afterEach(() => {
+      rmSync(tempDir, { recursive: true, force: true })
+    })
+
+    it('loads presets in order and keeps user templates first', async () => {
+      const scaffoldDir = join(tempDir, '.scaffold/src/components')
+      mkdirSync(scaffoldDir, { recursive: true })
+      writeFileSync(join(scaffoldDir, '[...path].vue'), 'user template')
+
+      const options = resolveOptions({ presets: ['vue', 'vue-router'] })
+      const templates = await loadTemplates(options, tempDir)
+
+      expect(templates.map((template) => template.templatePath)).toEqual([
+        'src/components/[...path].vue',
+        'src/pages/[...path].vue',
+        'src/components/[...path].vue',
+      ])
+
+      const match = findTemplateForFile('src/components/Button.vue', templates)
+      expect(match?.content).toBe('user template')
+
+      const pageMatch = findTemplateForFile('src/pages/Home.vue', templates)
+      expect(pageMatch?.templatePath).toBe('src/pages/[...path].vue')
     })
   })
 })
