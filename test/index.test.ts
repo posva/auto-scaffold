@@ -303,9 +303,21 @@ describe('e2e', () => {
     const testFile = join(nestedDir, 'Input.vue')
     writeFileSync(testFile, '')
 
-    await new Promise((resolve) => setTimeout(resolve, 200))
-
-    const content = readFileSync(testFile, 'utf-8')
+    const content = await new Promise<string>((resolve, reject) => {
+      const deadline = Date.now() + 1500
+      const timer = setInterval(() => {
+        const current = readFileSync(testFile, 'utf-8')
+        if (current === templateContent) {
+          clearInterval(timer)
+          resolve(current)
+          return
+        }
+        if (Date.now() > deadline) {
+          clearInterval(timer)
+          reject(new Error('Timed out waiting for scaffolded content'))
+        }
+      }, 50)
+    })
     expect(content).toBe(templateContent)
     expect(log).toHaveBeenCalledWith('[auto-scaffold] Scaffolding forms/Input.vue')
 
