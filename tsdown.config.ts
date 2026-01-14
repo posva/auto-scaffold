@@ -2,6 +2,9 @@ import { defineConfig } from 'tsdown'
 
 export default defineConfig({
   dts: true,
-  entry: ['src/*.ts'],
+  entry: {
+    index: 'src/index.ts',
+    '*': 'src/entries/*.ts',
+  },
   exports: true,
 })

@@ -23,16 +23,12 @@
   "exports": {
     ".": "./dist/index.mjs",
     "./astro": "./dist/astro.mjs",
-    "./core": "./dist/core.mjs",
     "./esbuild": "./dist/esbuild.mjs",
     "./farm": "./dist/farm.mjs",
     "./nuxt": "./dist/nuxt.mjs",
-    "./patterns": "./dist/patterns.mjs",
-    "./presets": "./dist/presets.mjs",
     "./rollup": "./dist/rollup.mjs",
     "./rspack": "./dist/rspack.mjs",
     "./types": "./dist/types.mjs",
-    "./utils": "./dist/utils.mjs",
     "./vite": "./dist/vite.mjs",
     "./webpack": "./dist/webpack.mjs",
     "./package.json": "./package.json"

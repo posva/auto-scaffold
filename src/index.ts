@@ -1,5 +1,5 @@
 import type { UnpluginFactory } from 'unplugin'
-import type { Options } from './types'
+import type { Options } from './entries/types'
 import type { WatcherContext } from './core'
 import { createUnplugin } from 'unplugin'
 import { loadTemplatesFromDir, mergeTemplates, resolveOptions, startWatchers } from './core'
@@ -58,5 +58,5 @@ export const unplugin = /* #__PURE__ */ createUnplugin(unpluginFactory)
 export default unplugin
 
 // Re-export types and preset utilities
-export type { Options, PresetName } from './types'
+export type { Options, PresetName } from './entries/types'
 export { loadPreset, loadPresets } from './presets'

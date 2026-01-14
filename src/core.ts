@@ -1,4 +1,4 @@
-import type { Options, PresetName, ResolvedOptions } from './types'
+import type { Options, PresetName, ResolvedOptions } from './entries/types'
 import type { ParsedTemplate } from './patterns'
 import { existsSync, readFileSync, statSync, writeFileSync } from 'node:fs'
 import type { FSWatcher } from 'chokidar'
