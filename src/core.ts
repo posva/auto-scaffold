@@ -2,9 +2,9 @@ import type { Options, ResolvedOptions } from './types'
 import type { ParsedTemplate } from './patterns'
 import { existsSync, readFileSync, statSync, writeFileSync } from 'node:fs'
 import { readdir } from 'node:fs/promises'
-import { join, relative, resolve } from 'node:path'
 import type { FSWatcher } from 'chokidar'
 import chokidar from 'chokidar'
+import { join, relative, resolve } from 'pathe'
 import { inferWatchDirs, matchFile, parseTemplatePath } from './patterns'
 
 export function resolveOptions(options: Options = {}): ResolvedOptions {

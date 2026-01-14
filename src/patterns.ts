@@ -1,4 +1,4 @@
-import { extname, basename, dirname } from 'node:path'
+import { extname, basename, dirname } from 'pathe'
 
 export interface PatternSegment {
   type: 'static' | 'param' | 'spread'

@@ -17,6 +17,9 @@ importers:
       esbuild:
         specifier: '*'
         version: 0.27.2
+      pathe:
+        specifier: ^2.0.3
+        version: 2.0.3
       unplugin:
         specifier: ^2.3.11
         version: 2.3.11
