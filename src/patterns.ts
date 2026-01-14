@@ -20,8 +20,8 @@ export interface ParsedTemplate {
   extension: string
   /** Original template path relative to scaffold dir */
   templatePath: string
-  /** Template file content */
-  content: string
+  /** Absolute path to the scaffold directory containing this template */
+  scaffoldDir: string
 }
 
 const BRACKET_REGEX = /\[(?:\.\.\.)?([^\]]+)\]/g
@@ -70,7 +70,7 @@ function parseSegment(segment: string): PatternSegment[] {
 /**
  * Parse a template file path into a {@link ParsedTemplate}.
  */
-export function parseTemplatePath(relativePath: string, content: string): ParsedTemplate {
+export function parseTemplatePath(relativePath: string, scaffoldDir: string): ParsedTemplate {
   const ext = extname(relativePath)
   const dir = dirname(relativePath)
   const file = basename(relativePath, ext)
@@ -91,7 +91,7 @@ export function parseTemplatePath(relativePath: string, content: string): Parsed
     filename,
     extension: ext,
     templatePath: relativePath,
-    content,
+    scaffoldDir,
   }
 }
 

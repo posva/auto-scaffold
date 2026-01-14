@@ -1,6 +1,6 @@
 import type { PresetName } from './types'
 import type { ParsedTemplate } from './patterns'
-import { existsSync, readFileSync } from 'node:fs'
+import { existsSync } from 'node:fs'
 import { dirname, join } from 'pathe'
 import { fileURLToPath } from 'node:url'
 import { parseTemplatePath } from './patterns'
@@ -20,10 +20,7 @@ export function loadPreset(name: PresetName): ParsedTemplate[] {
   }
 
   const files = scanDirSync(presetDir, presetDir)
-  return files.map((file) => {
-    const content = readFileSync(join(presetDir, file), 'utf-8')
-    return parseTemplatePath(file, content)
-  })
+  return files.map((file) => parseTemplatePath(file, presetDir))
 }
 
 /**
