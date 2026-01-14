@@ -24,12 +24,12 @@ Create a `.scaffold` folder in your project root with template files:
 
 ```
 .scaffold/
-├── component.vue    # Template for .vue files
-├── composable.ts    # Template for .ts files
+├── src/components/[...path].component.vue  # Template for nested components
+├── src/composables/[name].ts               # Template for direct children
 └── ...
 ```
 
-Example `.scaffold/component.vue`:
+Example `.scaffold/src/components/[...path].component.vue`:
 
 ```vue
 <script setup lang="ts"></script>
