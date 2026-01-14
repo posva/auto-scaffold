@@ -11,6 +11,9 @@ importers:
       '@farmfe/core':
         specifier: '>=1'
         version: 1.7.5
+      chokidar:
+        specifier: ^5.0.0
+        version: 5.0.0
       esbuild:
         specifier: '*'
         version: 0.27.2

@@ -1,9 +1,10 @@
-import type { FSWatcher } from 'node:fs'
 import type { Options, ResolvedOptions } from './types'
 import type { ParsedTemplate } from './patterns'
-import { existsSync, readFileSync, statSync, watch, writeFileSync } from 'node:fs'
+import { existsSync, readFileSync, statSync, writeFileSync } from 'node:fs'
 import { readdir } from 'node:fs/promises'
 import { join, relative, resolve } from 'node:path'
+import type { FSWatcher } from 'chokidar'
+import chokidar from 'chokidar'
 import { inferWatchDirs, matchFile, parseTemplatePath } from './patterns'
 
 export function resolveOptions(options: Options = {}): ResolvedOptions {
@@ -87,7 +88,7 @@ export async function applyTemplate(filePath: string, template: ParsedTemplate):
 
 export interface WatcherContext {
   watchers: FSWatcher[]
-  stop: () => void
+  stop: () => Promise<void>
 }
 
 export function startWatchers(
@@ -97,6 +98,8 @@ export function startWatchers(
   log: (msg: string) => void,
 ): WatcherContext {
   const watchers: FSWatcher[] = []
+  const startTime = Date.now()
+  const usePolling = process.env.NODE_ENV === 'test' || Boolean(process.env.VITEST)
 
   // Infer watch dirs from templates if not explicitly provided
   const watchDirs = options.watchDirs ?? inferWatchDirs(templates)
@@ -107,25 +110,35 @@ export function startWatchers(
       continue
     }
 
-    const watcher = watch(dir, { recursive: true }, async (eventType, filename) => {
-      if (!filename || eventType !== 'rename') {
+    const watcher = chokidar.watch(dir, {
+      ignoreInitial: false,
+      usePolling,
+      awaitWriteFinish: {
+        stabilityThreshold: 100,
+        pollInterval: 50,
+      },
+    })
+
+    watcher.on('add', async (filePath) => {
+      let stats
+      try {
+        stats = statSync(filePath)
+      } catch {
         return
       }
 
-      const filePath = join(dir, filename)
-
-      // Check file exists and is empty
-      if (!existsSync(filePath) || !isFileEmpty(filePath)) {
+      const isNewFile = stats.birthtimeMs >= startTime || stats.ctimeMs >= startTime
+      if (!isNewFile || stats.size !== 0) {
         return
       }
 
-      // Build full path relative to root for matching
       const relativePath = relative(root, filePath)
       const template = findTemplateForFile(relativePath, templates)
       if (!template) {
         return
       }
 
+      const filename = relative(dir, filePath)
       log(`[auto-scaffold] Scaffolding ${filename}`)
       await applyTemplate(filePath, template)
     })
@@ -135,10 +148,8 @@ export function startWatchers(
 
   return {
     watchers,
-    stop: () => {
-      for (const watcher of watchers) {
-        watcher.close()
-      }
+    stop: async () => {
+      await Promise.all(watchers.map((watcher) => watcher.close()))
     },
   }
 }

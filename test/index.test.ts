@@ -280,7 +280,7 @@ describe('e2e', () => {
     expect(content).toBe(templateContent)
 
     // Cleanup
-    ctx.stop()
+    await ctx.stop()
   })
 
   it('scaffolds nested empty file', async () => {
@@ -309,7 +309,7 @@ describe('e2e', () => {
     expect(content).toBe(templateContent)
     expect(log).toHaveBeenCalledWith('[auto-scaffold] Scaffolding forms/Input.vue')
 
-    ctx.stop()
+    await ctx.stop()
   })
 
   it('ignores non-empty files', async () => {
@@ -334,6 +334,6 @@ describe('e2e', () => {
     expect(content).toBe(existingContent)
     expect(log).not.toHaveBeenCalled()
 
-    ctx.stop()
+    await ctx.stop()
   })
 })
