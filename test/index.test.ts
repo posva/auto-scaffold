@@ -442,4 +442,63 @@ describe('e2e', () => {
 
     await ctx.stop()
   })
+
+  it('scaffolds using preset template', async () => {
+    // No .scaffold folder, just use preset
+    const presetTemplates = loadPresets(['vue'])
+    const options = resolveOptions({ presets: ['vue'] })
+    const templates = mergeTemplates(presetTemplates, [])
+
+    const log = vi.fn()
+    const ctx = startWatchers(options, tempDir, templates, log)
+    await ctx.ready
+
+    // Create empty file in components
+    const testFile = join(componentsDir, 'Button.vue')
+    writeFileSync(testFile, '')
+
+    await new Promise((resolve) => setTimeout(resolve, 500))
+
+    // Verify preset template was applied
+    const content = readFileSync(testFile, 'utf-8')
+    expect(content).toContain('<script setup')
+    expect(log).toHaveBeenCalled()
+
+    await ctx.stop()
+  })
+
+  it('user template overrides preset', async () => {
+    // Setup user .scaffold with custom template
+    const scaffoldDir = join(tempDir, '.scaffold/src/components')
+    mkdirSync(scaffoldDir, { recursive: true })
+    const userContent = '<template>user override</template>'
+    writeFileSync(join(scaffoldDir, '[...path].vue'), userContent)
+
+    // Load both preset and user templates
+    const presetTemplates = loadPresets(['vue'])
+    const userTemplates = await loadTemplatesFromDir('.scaffold', tempDir)
+    const templates = mergeTemplates(presetTemplates, userTemplates)
+
+    // User should override preset
+    expect(templates.find((t) => t.templatePath === 'src/components/[...path].vue')?.content).toBe(
+      userContent,
+    )
+
+    const options = resolveOptions({ presets: ['vue'] })
+    const log = vi.fn()
+    const ctx = startWatchers(options, tempDir, templates, log)
+    await ctx.ready
+
+    // Create empty file
+    const testFile = join(componentsDir, 'Override.vue')
+    writeFileSync(testFile, '')
+
+    await new Promise((resolve) => setTimeout(resolve, 500))
+
+    // Verify user template was applied, not preset
+    const content = readFileSync(testFile, 'utf-8')
+    expect(content).toBe(userContent)
+
+    await ctx.stop()
+  })
 })
