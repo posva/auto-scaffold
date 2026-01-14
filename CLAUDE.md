@@ -15,7 +15,19 @@ pnpm format     # oxfmt
 
 ## Structure
 
+- `src/patterns.ts` - bracket syntax parsing, path matching
 - `src/core.ts` - file watching, template loading
 - `src/index.ts` - unplugin factory, Vite integration
-- `src/types.ts` - Options, TemplateConfig interfaces
-- `playground/` - test with `pnpm play`, create empty `.vue` in `src/components/`
+- `src/types.ts` - Options interface
+
+## Template Patterns
+
+Bracket syntax (Vue Router-like):
+- `[name].vue` - direct children only
+- `[...path].vue` - any depth (0+ nested)
+- `[name].component.vue` - with static suffix
+
+Scaffold mirrors project structure:
+```
+.scaffold/src/components/[...path].vue → src/components/**/*.vue
+```
