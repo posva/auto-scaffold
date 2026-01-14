@@ -2,7 +2,8 @@ import type { UnpluginFactory } from 'unplugin'
 import type { Options } from './types'
 import type { WatcherContext } from './core'
 import { createUnplugin } from 'unplugin'
-import { loadTemplatesFromDir, resolveOptions, startWatchers } from './core'
+import { loadTemplatesFromDir, mergeTemplates, resolveOptions, startWatchers } from './core'
+import { loadPresets } from './presets'
 
 export const unpluginFactory: UnpluginFactory<Options | undefined> = (options) => {
   let watcherContext: WatcherContext | null = null
@@ -24,12 +25,18 @@ export const unpluginFactory: UnpluginFactory<Options | undefined> = (options) =
           return
         }
 
-        // Load templates from .scaffold folder
-        const templates = await loadTemplatesFromDir(resolved.scaffoldDir, root)
+        // Load preset templates
+        const presetTemplates = loadPresets(resolved.presets)
+
+        // Load user templates from .scaffold folder
+        const userTemplates = await loadTemplatesFromDir(resolved.scaffoldDir, root)
+
+        // Merge: user templates override presets
+        const templates = mergeTemplates(presetTemplates, userTemplates)
 
         if (templates.length === 0) {
           server.config.logger.warn(
-            '[auto-scaffold] No templates found. Create templates in .scaffold/ folder.',
+            '[auto-scaffold] No templates found. Add presets or create templates in .scaffold/ folder.',
           )
           return
         }
@@ -49,3 +56,7 @@ export const unpluginFactory: UnpluginFactory<Options | undefined> = (options) =
 export const unplugin = /* #__PURE__ */ createUnplugin(unpluginFactory)
 
 export default unplugin
+
+// Re-export types and preset utilities
+export type { Options, PresetName } from './types'
+export { loadPreset, loadPresets } from './presets'
