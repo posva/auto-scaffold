@@ -53,8 +53,8 @@
     "lint": "oxlint",
     "format": "oxfmt . .github",
     "format:check": "oxfmt --check .",
-    "play": "npm -C playground run dev",
-    "prepublishOnly": "npm run build",
+    "play": "pnpm -C playground run dev",
+    "release": "node ./scripts/release.ts",
     "start": "node src/index.ts",
     "test": "vitest"
   },
