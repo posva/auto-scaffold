@@ -221,6 +221,37 @@ describe('core', () => {
       const result = findTemplateForFile('src/views/Home.vue', templates)
       expect(result).toBeUndefined()
     })
+
+    it('prefers param pattern over spread pattern', () => {
+      const templates = [
+        parseTemplatePath('[...path].vue', '<template/>'),
+        parseTemplatePath('[name].vue', '<template/>'),
+      ]
+
+      const result = findTemplateForFile('Button.vue', templates)
+      expect(result?.templatePath).toBe('[name].vue')
+    })
+
+    it('prefers static path over dynamic path segments', () => {
+      const templates = [
+        parseTemplatePath('[dir]/[name].vue', '<template/>'),
+        parseTemplatePath('src/[name].vue', '<template/>'),
+      ]
+
+      const result = findTemplateForFile('src/Button.vue', templates)
+      expect(result?.templatePath).toBe('src/[name].vue')
+    })
+
+    it('prefers fully static filename over dynamic patterns', () => {
+      const templates = [
+        parseTemplatePath('src/components/[...path].vue', '<template/>'),
+        parseTemplatePath('src/components/[name].vue', '<template/>'),
+        parseTemplatePath('src/components/Button.vue', '<template/>'),
+      ]
+
+      const result = findTemplateForFile('src/components/Button.vue', templates)
+      expect(result?.templatePath).toBe('src/components/Button.vue')
+    })
   })
 
   describe('loadTemplatesFromDir', () => {
