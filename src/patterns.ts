@@ -1,10 +1,16 @@
 import { extname, basename, dirname } from 'pathe'
 
+/**
+ * A parsed segment of a template path pattern.
+ */
 export interface PatternSegment {
   type: 'static' | 'param' | 'spread'
   value: string
 }
 
+/**
+ * Parsed representation of a template file path and content.
+ */
 export interface ParsedTemplate {
   /** Directory segments (e.g., ['src', 'components']) */
   segments: PatternSegment[]
@@ -62,7 +68,7 @@ function parseSegment(segment: string): PatternSegment[] {
 }
 
 /**
- * Parse a template file path into a ParsedTemplate structure
+ * Parse a template file path into a {@link ParsedTemplate}.
  */
 export function parseTemplatePath(relativePath: string, content: string): ParsedTemplate {
   const ext = extname(relativePath)
@@ -143,7 +149,7 @@ function escapeRegex(str: string): string {
 }
 
 /**
- * Get the static prefix path from a parsed template (directories before any dynamic segment)
+ * Get the static prefix path from a parsed template (directories before any dynamic segment).
  */
 export function getStaticPrefix(template: ParsedTemplate): string {
   const parts: string[] = []
@@ -260,8 +266,8 @@ export function matchFile(
 }
 
 /**
- * Infer watch directories from a list of parsed templates
- * Returns unique directory prefixes that should be watched
+ * Infer watch directories from a list of parsed templates.
+ * Returns unique directory prefixes that should be watched.
  */
 export function inferWatchDirs(templates: ParsedTemplate[]): string[] {
   const dirs = new Set<string>()

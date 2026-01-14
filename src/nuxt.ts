@@ -3,6 +3,9 @@ import { addVitePlugin, addWebpackPlugin, defineNuxtModule } from '@nuxt/kit'
 import vite from './vite'
 import webpack from './webpack'
 
+/**
+ * Nuxt module configuration for auto-scaffold.
+ */
 export interface ModuleOptions extends Options {}
 
 export default defineNuxtModule<ModuleOptions>({

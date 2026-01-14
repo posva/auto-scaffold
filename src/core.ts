@@ -6,6 +6,9 @@ import chokidar from 'chokidar'
 import { join, relative, resolve } from 'pathe'
 import { inferWatchDirs, matchFile, parseTemplatePath } from './patterns'
 
+/**
+ * Apply defaults to user options.
+ */
 export function resolveOptions(options: Options = {}): ResolvedOptions {
   return {
     scaffoldDir: options.scaffoldDir ?? '.scaffold',
@@ -30,7 +33,7 @@ function scanDirSync(dir: string, base: string): string[] {
 }
 
 /**
- * Load templates from scaffold directory, parsing paths into patterns
+ * Load templates from the scaffold directory, parsing paths into patterns.
  */
 export async function loadTemplatesFromDir(
   scaffoldDir: string,
@@ -52,6 +55,9 @@ export async function loadTemplatesFromDir(
   return templates
 }
 
+/**
+ * Check if a file exists and has zero size.
+ */
 export function isFileEmpty(filePath: string): boolean {
   try {
     const s = statSync(filePath)
@@ -62,7 +68,7 @@ export function isFileEmpty(filePath: string): boolean {
 }
 
 /**
- * Find matching template for a file path
+ * Find the matching template for a file path.
  */
 export function findTemplateForFile(
   filePath: string,
@@ -77,16 +83,25 @@ export function findTemplateForFile(
   return undefined
 }
 
+/**
+ * Write a template's content into a file path.
+ */
 export async function applyTemplate(filePath: string, template: ParsedTemplate): Promise<void> {
   writeFileSync(filePath, template.content, 'utf-8')
 }
 
+/**
+ * Handles the lifecycle of file watchers.
+ */
 export interface WatcherContext {
   watchers: FSWatcher[]
   ready: Promise<void>
   stop: () => Promise<void>
 }
 
+/**
+ * Start file watchers and apply templates for new empty files.
+ */
 export function startWatchers(
   options: ResolvedOptions,
   root: string,
