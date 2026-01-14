@@ -101,6 +101,7 @@
   "devDependencies": {
     "@nuxt/kit": "^4.2.2",
     "@nuxt/schema": "^4.2.2",
+    "@pinia/colada": "^0.21.1",
     "@posva/prompts": "^2.4.4",
     "@types/node": "^25.0.8",
     "@types/semver": "^7.7.1",
@@ -113,6 +114,7 @@
     "nodemon": "^3.1.10",
     "oxfmt": "^0.24.0",
     "oxlint": "^1.39.0",
+    "pinia": "^3.0.4",
     "rollup": "^4.41.0",
     "semver": "^7.7.3",
     "simple-git-hooks": "^2.13.1",
@@ -120,6 +122,8 @@
     "typescript": "^5.9.3",
     "vite": "^7.3.1",
     "vitest": "^4.0.17",
+    "vue": "^3.5.26",
+    "vue-router": "^4.6.4",
     "webpack": "^5.99.9"
   },
   "simple-git-hooks": {
