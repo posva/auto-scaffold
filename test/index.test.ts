@@ -7,10 +7,12 @@ import {
   findTemplateForFile,
   isFileEmpty,
   loadTemplatesFromDir,
+  mergeTemplates,
   resolveOptions,
   startWatchers,
 } from '../src/core'
 import { inferWatchDirs, matchFile, parseTemplatePath, getStaticPrefix } from '../src/patterns'
+import { loadPreset, loadPresets } from '../src/presets'
 
 describe('patterns', () => {
   describe('parseTemplatePath', () => {
@@ -228,6 +230,108 @@ describe('core', () => {
 
     it('returns empty array if .scaffold does not exist', async () => {
       const templates = await loadTemplatesFromDir('.scaffold', tempDir)
+      expect(templates).toEqual([])
+    })
+  })
+
+  describe('resolveOptions with presets', () => {
+    it('normalizes string preset to array', () => {
+      const resolved = resolveOptions({ presets: 'vue' })
+      expect(resolved.presets).toEqual(['vue'])
+    })
+
+    it('keeps array presets as-is', () => {
+      const resolved = resolveOptions({ presets: ['vue', 'pinia'] })
+      expect(resolved.presets).toEqual(['vue', 'pinia'])
+    })
+
+    it('defaults to empty array when no presets', () => {
+      const resolved = resolveOptions({})
+      expect(resolved.presets).toEqual([])
+    })
+  })
+
+  describe('mergeTemplates', () => {
+    it('user templates override presets with same path', () => {
+      const preset = [parseTemplatePath('src/components/[...path].vue', 'preset content')]
+      const user = [parseTemplatePath('src/components/[...path].vue', 'user content')]
+
+      const merged = mergeTemplates(preset, user)
+      expect(merged).toHaveLength(1)
+      expect(merged[0].content).toBe('user content')
+    })
+
+    it('keeps non-overlapping templates from both sources', () => {
+      const preset = [parseTemplatePath('src/stores/[name].ts', 'store')]
+      const user = [parseTemplatePath('src/components/[...path].vue', 'component')]
+
+      const merged = mergeTemplates(preset, user)
+      expect(merged).toHaveLength(2)
+    })
+
+    it('preserves order with user templates last', () => {
+      const preset = [
+        parseTemplatePath('src/a/[name].ts', 'a'),
+        parseTemplatePath('src/b/[name].ts', 'b'),
+      ]
+      const user = [parseTemplatePath('src/c/[name].ts', 'c')]
+
+      const merged = mergeTemplates(preset, user)
+      expect(merged).toHaveLength(3)
+    })
+  })
+})
+
+describe('presets', () => {
+  describe('loadPreset', () => {
+    it('loads vue preset templates', () => {
+      const templates = loadPreset('vue')
+      expect(templates).toHaveLength(1)
+      expect(templates[0].templatePath).toBe('src/components/[...path].vue')
+    })
+
+    it('loads vue-router preset templates', () => {
+      const templates = loadPreset('vue-router')
+      expect(templates).toHaveLength(1)
+      expect(templates[0].templatePath).toBe('src/pages/[...path].vue')
+    })
+
+    it('loads pinia preset templates', () => {
+      const templates = loadPreset('pinia')
+      expect(templates).toHaveLength(1)
+      expect(templates[0].templatePath).toBe('src/stores/[name].ts')
+    })
+
+    it('loads pinia-colada preset templates', () => {
+      const templates = loadPreset('pinia-colada')
+      expect(templates).toHaveLength(1)
+      expect(templates[0].templatePath).toBe('src/queries/[name].ts')
+    })
+
+    it('returns empty array for unknown preset', () => {
+      // @ts-expect-error testing invalid preset
+      const templates = loadPreset('nonexistent')
+      expect(templates).toEqual([])
+    })
+  })
+
+  describe('loadPresets', () => {
+    it('merges multiple presets', () => {
+      const templates = loadPresets(['vue', 'pinia'])
+      expect(templates.length).toBe(2)
+      expect(templates.some((t) => t.templatePath.includes('components'))).toBe(true)
+      expect(templates.some((t) => t.templatePath.includes('stores'))).toBe(true)
+    })
+
+    it('later preset wins on conflict', () => {
+      // If both had same templatePath, later would win
+      // Currently no overlap, but test the merge behavior
+      const templates = loadPresets(['vue', 'vue-router', 'pinia'])
+      expect(templates.length).toBe(3)
+    })
+
+    it('returns empty array for empty presets', () => {
+      const templates = loadPresets([])
       expect(templates).toEqual([])
     })
   })

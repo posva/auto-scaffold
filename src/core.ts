@@ -1,4 +1,4 @@
-import type { Options, ResolvedOptions } from './types'
+import type { Options, PresetName, ResolvedOptions } from './types'
 import type { ParsedTemplate } from './patterns'
 import { existsSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs'
 import type { FSWatcher } from 'chokidar'
@@ -10,10 +10,40 @@ import { inferWatchDirs, matchFile, parseTemplatePath } from './patterns'
  * Apply defaults to user options.
  */
 export function resolveOptions(options: Options = {}): ResolvedOptions {
+  // Normalize presets to array
+  let presets: PresetName[] = []
+  if (options.presets) {
+    presets = Array.isArray(options.presets) ? options.presets : [options.presets]
+  }
+
   return {
     scaffoldDir: options.scaffoldDir ?? '.scaffold',
     enabled: options.enabled ?? true,
+    presets,
   }
+}
+
+/**
+ * Merge templates from presets and user config.
+ * User templates override presets with the same templatePath.
+ */
+export function mergeTemplates(
+  presetTemplates: ParsedTemplate[],
+  userTemplates: ParsedTemplate[],
+): ParsedTemplate[] {
+  const templateMap = new Map<string, ParsedTemplate>()
+
+  // Presets first (lower precedence)
+  for (const t of presetTemplates) {
+    templateMap.set(t.templatePath, t)
+  }
+
+  // User templates override (higher precedence)
+  for (const t of userTemplates) {
+    templateMap.set(t.templatePath, t)
+  }
+
+  return [...templateMap.values()]
 }
 
 function scanDirSync(dir: string, base: string): string[] {
