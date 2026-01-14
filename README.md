@@ -1,28 +1,42 @@
-# unplugin-starter
+# auto-scaffold
 
-[![NPM version](https://img.shields.io/npm/v/unplugin-starter?color=a1b858&label=)](https://www.npmjs.com/package/unplugin-starter)
+[![NPM version](https://img.shields.io/npm/v/auto-scaffold?color=a1b858&label=)](https://www.npmjs.com/package/auto-scaffold)
 
-Starter template for [unplugin](https://github.com/unjs/unplugin).
+Dev-only plugin that automatically populates empty files with templates when they're created.
 
-## Template Usage
+## Features
 
-To use this template, clone it down using:
-
-```bash
-npx degit unplugin/unplugin-starter my-unplugin
-```
-
-And do a global replacement of `unplugin-starter` with your plugin name.
-
-Then you can start developing your unplugin 🔥
-
-To test your plugin, run: `pnpm run dev`
-To release a new version, run: `pnpm run release`
+- Watch folders for new empty files
+- Auto-populate with configurable templates
+- Support for any file extension (.vue, .ts, .tsx, etc.)
+- Templates stored in `.scaffold/` folder or inline config
+- Dev-only - doesn't run during builds
 
 ## Install
 
 ```bash
-npm i unplugin-starter
+npm i -D auto-scaffold
+```
+
+## Usage
+
+Create a `.scaffold` folder in your project root with template files:
+
+```
+.scaffold/
+├── component.vue    # Template for .vue files
+├── composable.ts    # Template for .ts files
+└── ...
+```
+
+Example `.scaffold/component.vue`:
+
+```vue
+<script setup lang="ts"></script>
+
+<template>
+  <div></div>
+</template>
 ```
 
 <details>
@@ -30,52 +44,18 @@ npm i unplugin-starter
 
 ```ts
 // vite.config.ts
-import Starter from 'unplugin-starter/vite'
+import AutoScaffold from "auto-scaffold/vite";
 
 export default defineConfig({
   plugins: [
-    Starter({
-      /* options */
+    AutoScaffold({
+      // Optional: customize watched folders (default: ['src/components'])
+      watchDirs: ["src/components", "src/views"],
+      // Optional: inline templates (merged with .scaffold/ files)
+      templates: [{ extension: ".vue", template: "<template></template>" }],
     }),
   ],
-})
-```
-
-Example: [`playground/`](./playground/)
-
-<br></details>
-
-<details>
-<summary>Rollup</summary><br>
-
-```ts
-// rollup.config.js
-import Starter from 'unplugin-starter/rollup'
-
-export default {
-  plugins: [
-    Starter({
-      /* options */
-    }),
-  ],
-}
-```
-
-<br></details>
-
-<details>
-<summary>Webpack</summary><br>
-
-```ts
-// webpack.config.js
-module.exports = {
-  /* ... */
-  plugins: [
-    require('unplugin-starter/webpack')({
-      /* options */
-    }),
-  ],
-}
+});
 ```
 
 <br></details>
@@ -84,52 +64,33 @@ module.exports = {
 <summary>Nuxt</summary><br>
 
 ```ts
-// nuxt.config.js
+// nuxt.config.ts
 export default defineNuxtConfig({
-  modules: [
-    [
-      'unplugin-starter/nuxt',
-      {
-        /* options */
-      },
-    ],
-  ],
-})
-```
-
-> This module works for both Nuxt 2 and [Nuxt Vite](https://github.com/nuxt/vite)
-
-<br></details>
-
-<details>
-<summary>Vue CLI</summary><br>
-
-```ts
-// vue.config.js
-module.exports = {
-  configureWebpack: {
-    plugins: [
-      require('unplugin-starter/webpack')({
-        /* options */
-      }),
-    ],
+  modules: ["auto-scaffold/nuxt"],
+  autoScaffold: {
+    watchDirs: ["components"],
   },
-}
+});
 ```
 
 <br></details>
 
-<details>
-<summary>esbuild</summary><br>
+## Options
 
-```ts
-// esbuild.config.js
-import { build } from 'esbuild'
-import Starter from 'unplugin-starter/esbuild'
+| Option       | Type               | Default             | Description                               |
+| ------------ | ------------------ | ------------------- | ----------------------------------------- |
+| `watchDirs`  | `string[]`         | `['src/components']`| Folders to watch for new files            |
+| `scaffoldDir`| `string`           | `'.scaffold'`       | Directory containing template files       |
+| `templates`  | `TemplateConfig[]` | `[]`                | Inline template configurations            |
+| `enabled`    | `boolean`          | `true`              | Enable/disable the plugin                 |
 
-build({
-  plugins: [Starter()],
-})
-```
+## How It Works
 
-<br></details>
+1. When the dev server starts, auto-scaffold loads templates from `.scaffold/` folder
+2. It watches the configured directories for file changes
+3. When an empty file is created (0 bytes), it matches the extension to a template
+4. The template content is automatically written to the file
+
+## License
+
+MIT
