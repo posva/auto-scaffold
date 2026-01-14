@@ -1,8 +1,8 @@
 {
-  "name": "unplugin-starter",
+  "name": "auto-scaffold",
   "type": "module",
-  "version": "0.1.0",
-  "packageManager": "pnpm@10.11.0",
+  "version": "0.0.0",
+  "packageManager": "pnpm@10.28.0",
   "description": "",
   "license": "MIT",
   "homepage": "https://github.com/antfu/unplugin-starter#readme",
