@@ -266,6 +266,7 @@ describe('e2e', () => {
     // Start watchers
     const log = vi.fn()
     const ctx = startWatchers(options, tempDir, templates, log)
+    await ctx.ready
 
     // Create empty file
     const testFile = join(componentsDir, 'TestComponent.vue')
@@ -298,6 +299,7 @@ describe('e2e', () => {
     const options = resolveOptions()
     const log = vi.fn()
     const ctx = startWatchers(options, tempDir, templates, log)
+    await ctx.ready
 
     // Create empty nested file
     const testFile = join(nestedDir, 'Input.vue')
@@ -321,6 +323,7 @@ describe('e2e', () => {
     const options = resolveOptions()
     const log = vi.fn()
     const ctx = startWatchers(options, tempDir, templates, log)
+    await ctx.ready
 
     // Create non-empty file
     const testFile = join(componentsDir, 'Existing.vue')

@@ -84,6 +84,7 @@ export async function applyTemplate(filePath: string, template: ParsedTemplate):
 
 export interface WatcherContext {
   watchers: FSWatcher[]
+  ready: Promise<void>
   stop: () => Promise<void>
 }
 
@@ -94,8 +95,9 @@ export function startWatchers(
   log: (msg: string) => void,
 ): WatcherContext {
   const watchers: FSWatcher[] = []
-  const startTime = Date.now()
+  const readyPromises: Promise<void>[] = []
   const usePolling = process.env.NODE_ENV === 'test' || Boolean(process.env.VITEST)
+  const initialFiles = new Set<string>()
 
   // Infer watch dirs from templates if not explicitly provided
   const watchDirs = options.watchDirs ?? inferWatchDirs(templates)
@@ -106,29 +108,39 @@ export function startWatchers(
       continue
     }
 
+    for (const file of scanDirSync(dir, root)) {
+      initialFiles.add(file)
+    }
+
     const watcher = chokidar.watch(dir, {
       ignoreInitial: false,
       usePolling,
-      awaitWriteFinish: {
-        stabilityThreshold: 100,
-        pollInterval: 50,
-      },
+      depth: 99,
+      ...(usePolling
+        ? {}
+        : {
+            awaitWriteFinish: {
+              stabilityThreshold: 100,
+              pollInterval: 50,
+            },
+          }),
     })
+    readyPromises.push(
+      new Promise((resolve) => {
+        watcher.once('ready', resolve)
+      }),
+    )
 
     watcher.on('add', async (filePath) => {
-      let stats
-      try {
-        stats = statSync(filePath)
-      } catch {
-        return
-      }
-
-      const isNewFile = stats.birthtimeMs >= startTime || stats.ctimeMs >= startTime
-      if (!isNewFile || stats.size !== 0) {
-        return
-      }
-
       const relativePath = relative(root, filePath)
+      if (initialFiles.has(relativePath)) {
+        return
+      }
+
+      if (!isFileEmpty(filePath)) {
+        return
+      }
+
       const template = findTemplateForFile(relativePath, templates)
       if (!template) {
         return
@@ -139,11 +151,17 @@ export function startWatchers(
       await applyTemplate(filePath, template)
     })
 
+    watcher.on('unlink', (filePath) => {
+      const relativePath = relative(root, filePath)
+      initialFiles.delete(relativePath)
+    })
+
     watchers.push(watcher)
   }
 
   return {
     watchers,
+    ready: Promise.all(readyPromises).then(() => undefined),
     stop: async () => {
       await Promise.all(watchers.map((watcher) => watcher.close()))
     },
