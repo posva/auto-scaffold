@@ -22,6 +22,7 @@ async function waitForFileContent(filePath: string, timeout = 2000): Promise<str
 import {
   applyTemplate,
   findTemplateForFile,
+  getTemplateContent,
   isFileEmpty,
   loadTemplatesFromDir,
   mergeTemplates,
@@ -242,7 +243,7 @@ describe('core', () => {
       const templates = await loadTemplatesFromDir('.scaffold', tempDir)
       expect(templates).toHaveLength(1)
       expect(templates[0].templatePath).toBe('src/components/[...path].vue')
-      expect(templates[0].content).toBe('<template></template>')
+      expect(getTemplateContent(templates[0])).toBe('<template></template>')
     })
 
     it('returns empty array if .scaffold does not exist', async () => {
@@ -270,17 +271,17 @@ describe('core', () => {
 
   describe('mergeTemplates', () => {
     it('user templates override presets with same path', () => {
-      const preset = [parseTemplatePath('src/components/[...path].vue', 'preset content')]
-      const user = [parseTemplatePath('src/components/[...path].vue', 'user content')]
+      const preset = [parseTemplatePath('src/components/[...path].vue', '/preset/dir')]
+      const user = [parseTemplatePath('src/components/[...path].vue', '/user/dir')]
 
       const merged = mergeTemplates(preset, user)
       expect(merged).toHaveLength(1)
-      expect(merged[0].content).toBe('user content')
+      expect(merged[0].scaffoldDir).toBe('/user/dir')
     })
 
     it('keeps non-overlapping templates from both sources', () => {
-      const preset = [parseTemplatePath('src/stores/[name].ts', 'store')]
-      const user = [parseTemplatePath('src/components/[...path].vue', 'component')]
+      const preset = [parseTemplatePath('src/stores/[name].ts', '/preset')]
+      const user = [parseTemplatePath('src/components/[...path].vue', '/user')]
 
       const merged = mergeTemplates(preset, user)
       expect(merged).toHaveLength(2)
@@ -288,10 +289,10 @@ describe('core', () => {
 
     it('preserves order with user templates last', () => {
       const preset = [
-        parseTemplatePath('src/a/[name].ts', 'a'),
-        parseTemplatePath('src/b/[name].ts', 'b'),
+        parseTemplatePath('src/a/[name].ts', '/preset'),
+        parseTemplatePath('src/b/[name].ts', '/preset'),
       ]
-      const user = [parseTemplatePath('src/c/[name].ts', 'c')]
+      const user = [parseTemplatePath('src/c/[name].ts', '/user')]
 
       const merged = mergeTemplates(preset, user)
       expect(merged).toHaveLength(3)
@@ -496,10 +497,10 @@ describe('e2e', () => {
     const userTemplates = await loadTemplatesFromDir('.scaffold', tempDir)
     const templates = mergeTemplates(presetTemplates, userTemplates)
 
-    // User should override preset
-    expect(templates.find((t) => t.templatePath === 'src/components/[...path].vue')?.content).toBe(
-      userContent,
-    )
+    // User should override preset - verify by checking the template resolves to user content
+    const userTemplate = templates.find((t) => t.templatePath === 'src/components/[...path].vue')
+    expect(userTemplate).toBeDefined()
+    expect(getTemplateContent(userTemplate!)).toBe(userContent)
 
     const options = resolveOptions({ presets: ['vue'] })
     const log = vi.fn()
@@ -515,6 +516,44 @@ describe('e2e', () => {
     // Verify user template was applied, not preset
     const content = readFileSync(testFile, 'utf-8')
     expect(content).toBe(userContent)
+
+    await ctx.stop()
+  })
+
+  it('reads template content dynamically when scaffold file changes', async () => {
+    // Setup: Create .scaffold folder with initial template
+    const scaffoldDir = join(tempDir, '.scaffold/src/components')
+    mkdirSync(scaffoldDir, { recursive: true })
+    const templateFile = join(scaffoldDir, '[...path].vue')
+    const initialContent = '<template>initial</template>'
+    writeFileSync(templateFile, initialContent)
+
+    // Load templates and start watchers
+    const templates = await loadTemplatesFromDir('.scaffold', tempDir)
+    const options = resolveOptions()
+    const log = vi.fn()
+    const ctx = startWatchers(options, tempDir, templates, log)
+    await ctx.ready
+
+    // Create first empty file
+    const testFile1 = join(componentsDir, 'First.vue')
+    writeFileSync(testFile1, '')
+    await new Promise((resolve) => setTimeout(resolve, 300))
+
+    // Verify initial template was applied
+    expect(readFileSync(testFile1, 'utf-8')).toBe(initialContent)
+
+    // Update the scaffold template file
+    const updatedContent = '<template>updated</template>'
+    writeFileSync(templateFile, updatedContent)
+
+    // Create second empty file
+    const testFile2 = join(componentsDir, 'Second.vue')
+    writeFileSync(testFile2, '')
+    await new Promise((resolve) => setTimeout(resolve, 300))
+
+    // Verify NEW template content was applied (not cached old content)
+    expect(readFileSync(testFile2, 'utf-8')).toBe(updatedContent)
 
     await ctx.stop()
   })

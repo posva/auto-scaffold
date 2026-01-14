@@ -8,6 +8,13 @@ import { inferWatchDirs, matchFile, parseTemplatePath } from './patterns'
 import { scanDirSync } from './utils'
 
 /**
+ * Get template content by reading from disk.
+ */
+export function getTemplateContent(template: ParsedTemplate): string {
+  return readFileSync(join(template.scaffoldDir, template.templatePath), 'utf-8')
+}
+
+/**
  * Apply defaults to user options.
  */
 export function resolveOptions(options: Options = {}): ResolvedOptions {
@@ -60,14 +67,7 @@ export async function loadTemplatesFromDir(
   }
 
   const files = scanDirSync(dir, dir)
-  const templates: ParsedTemplate[] = []
-
-  for (const file of files) {
-    const content = readFileSync(join(dir, file), 'utf-8')
-    templates.push(parseTemplatePath(file, content))
-  }
-
-  return templates
+  return files.map((file) => parseTemplatePath(file, dir))
 }
 
 /**
@@ -100,9 +100,11 @@ export function findTemplateForFile(
 
 /**
  * Write a template's content into a file path.
+ * Reads template content from disk dynamically to pick up changes.
  */
 export async function applyTemplate(filePath: string, template: ParsedTemplate): Promise<void> {
-  writeFileSync(filePath, template.content, 'utf-8')
+  const content = getTemplateContent(template)
+  writeFileSync(filePath, content, 'utf-8')
 }
 
 /**
