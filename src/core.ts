@@ -1,122 +1,157 @@
-import type { FSWatcher } from 'node:fs'
-import type { Options, ResolvedOptions, TemplateConfig } from './types'
-import { existsSync, readFileSync, statSync, watch, writeFileSync } from 'node:fs'
-import { readdir } from 'node:fs/promises'
-import { extname, join, resolve } from 'node:path'
+import type { FSWatcher } from "node:fs";
+import type { Options, ResolvedOptions } from "./types";
+import type { ParsedTemplate } from "./patterns";
+import {
+  existsSync,
+  readFileSync,
+  statSync,
+  watch,
+  writeFileSync,
+} from "node:fs";
+import { readdir } from "node:fs/promises";
+import { join, relative, resolve } from "node:path";
+import { inferWatchDirs, matchFile, parseTemplatePath } from "./patterns";
 
-export function resolveOptions(options: Options = {}, root: string): ResolvedOptions {
+export function resolveOptions(options: Options = {}): ResolvedOptions {
   return {
-    watchDirs: options.watchDirs ?? ['src/components'],
-    templates: options.templates ?? [],
-    scaffoldDir: options.scaffoldDir ?? '.scaffold',
+    watchDirs: options.watchDirs,
+    scaffoldDir: options.scaffoldDir ?? ".scaffold",
     enabled: options.enabled ?? true,
-  }
+  };
 }
 
-export async function loadTemplatesFromDir(
-  scaffoldDir: string,
-  root: string,
-): Promise<TemplateConfig[]> {
-  const dir = resolve(root, scaffoldDir)
-  if (!existsSync(dir)) {
-    return []
-  }
+/**
+ * Recursively scan a directory and return all file paths relative to the base
+ */
+async function scanDir(dir: string, base: string): Promise<string[]> {
+  const files: string[] = [];
+  const entries = await readdir(dir, { withFileTypes: true });
 
-  const files = await readdir(dir)
-  const templates: TemplateConfig[] = []
-
-  for (const file of files) {
-    const ext = extname(file)
-    if (ext) {
-      const content = readFileSync(join(dir, file), 'utf-8')
-      templates.push({
-        extension: ext,
-        template: content,
-      })
+  for (const entry of entries) {
+    const fullPath = join(dir, entry.name);
+    if (entry.isDirectory()) {
+      files.push(...(await scanDir(fullPath, base)));
+    } else if (entry.isFile()) {
+      files.push(relative(base, fullPath));
     }
   }
 
-  return templates
+  return files;
+}
+
+/**
+ * Load templates from scaffold directory, parsing paths into patterns
+ */
+export async function loadTemplatesFromDir(
+  scaffoldDir: string,
+  root: string
+): Promise<ParsedTemplate[]> {
+  const dir = resolve(root, scaffoldDir);
+  if (!existsSync(dir)) {
+    return [];
+  }
+
+  const files = await scanDir(dir, dir);
+  const templates: ParsedTemplate[] = [];
+
+  for (const file of files) {
+    const content = readFileSync(join(dir, file), "utf-8");
+    templates.push(parseTemplatePath(file, content));
+  }
+
+  return templates;
 }
 
 export function isFileEmpty(filePath: string): boolean {
   try {
-    const stat = statSync(filePath)
-    return stat.size === 0
+    const s = statSync(filePath);
+    return s.size === 0;
   } catch {
-    return false
+    return false;
   }
 }
 
-export async function getTemplateContent(template: TemplateConfig): Promise<string> {
-  if (typeof template.template === 'function') {
-    return await template.template()
-  }
-  return template.template
-}
-
+/**
+ * Find matching template for a file path
+ */
 export function findTemplateForFile(
   filePath: string,
-  templates: TemplateConfig[],
-): TemplateConfig | undefined {
-  const ext = extname(filePath)
-  return templates.find((t) => t.extension === ext)
+  templates: ParsedTemplate[]
+): ParsedTemplate | undefined {
+  for (const template of templates) {
+    const match = matchFile(filePath, template);
+    if (match !== null) {
+      return template;
+    }
+  }
+  return undefined;
 }
 
-export async function applyTemplate(filePath: string, template: TemplateConfig): Promise<void> {
-  const content = await getTemplateContent(template)
-  writeFileSync(filePath, content, 'utf-8')
+export async function applyTemplate(
+  filePath: string,
+  template: ParsedTemplate
+): Promise<void> {
+  writeFileSync(filePath, template.content, "utf-8");
 }
 
 export interface WatcherContext {
-  watchers: FSWatcher[]
-  stop: () => void
+  watchers: FSWatcher[];
+  stop: () => void;
 }
 
 export function startWatchers(
   options: ResolvedOptions,
   root: string,
-  templates: TemplateConfig[],
-  log: (msg: string) => void,
+  templates: ParsedTemplate[],
+  log: (msg: string) => void
 ): WatcherContext {
-  const watchers: FSWatcher[] = []
+  const watchers: FSWatcher[] = [];
 
-  for (const watchDir of options.watchDirs) {
-    const dir = resolve(root, watchDir)
+  // Infer watch dirs from templates if not explicitly provided
+  const watchDirs = options.watchDirs ?? inferWatchDirs(templates);
+
+  for (const watchDir of watchDirs) {
+    const dir = resolve(root, watchDir);
     if (!existsSync(dir)) {
-      continue
+      continue;
     }
 
-    const watcher = watch(dir, { recursive: true }, async (eventType, filename) => {
-      if (!filename || eventType !== 'rename') {
-        return
+    const watcher = watch(
+      dir,
+      { recursive: true },
+      async (eventType, filename) => {
+        if (!filename || eventType !== "rename") {
+          return;
+        }
+
+        const filePath = join(dir, filename);
+
+        // Check file exists and is empty
+        if (!existsSync(filePath) || !isFileEmpty(filePath)) {
+          return;
+        }
+
+        // Build full path relative to root for matching
+        const relativePath = relative(root, filePath);
+        const template = findTemplateForFile(relativePath, templates);
+        if (!template) {
+          return;
+        }
+
+        log(`[auto-scaffold] Scaffolding ${filename}`);
+        await applyTemplate(filePath, template);
       }
+    );
 
-      const filePath = join(dir, filename)
-
-      // Check file exists and is empty
-      if (!existsSync(filePath) || !isFileEmpty(filePath)) {
-        return
-      }
-
-      const template = findTemplateForFile(filePath, templates)
-      if (!template) {
-        return
-      }
-
-      log(`[auto-scaffold] Scaffolding ${filename}`)
-      await applyTemplate(filePath, template)
-    })
-
-    watchers.push(watcher)
+    watchers.push(watcher);
   }
 
   return {
     watchers,
     stop: () => {
       for (const watcher of watchers) {
-        watcher.close()
+        watcher.close();
       }
     },
-  }
+  };
 }
