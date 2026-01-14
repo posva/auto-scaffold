@@ -24,8 +24,9 @@ Create a `.scaffold` folder in your project root with template files:
 
 ```
 .scaffold/
-├── src/components/[...path].component.vue  # Template for nested components
-├── src/composables/[name].ts               # Template for direct children
+├── src/components/[...path].vue         # Template for components (nested or not)
+├── src/pages/[...path].component.vue    # Allows partial names
+├── src/composables/[name].ts            # Template for direct children
 └── ...
 ```
 
