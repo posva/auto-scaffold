@@ -1,3 +1,6 @@
+/** Available built-in presets. */
+export type PresetName = 'vue' | 'vue-router' | 'pinia' | 'pinia-colada'
+
 /**
  * User-facing configuration for auto-scaffold.
  */
@@ -6,6 +9,8 @@ export interface Options {
   scaffoldDir?: string
   /** Enable/disable plugin (default: true in dev, false otherwise). */
   enabled?: boolean
+  /** Built-in presets to apply. Later presets override earlier ones. */
+  presets?: PresetName | PresetName[]
 }
 
 /**
@@ -14,4 +19,5 @@ export interface Options {
 export interface ResolvedOptions {
   scaffoldDir: string
   enabled: boolean
+  presets: PresetName[]
 }
