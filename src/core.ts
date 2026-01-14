@@ -1,7 +1,6 @@
 import type { Options, ResolvedOptions } from './types'
 import type { ParsedTemplate } from './patterns'
-import { existsSync, readFileSync, statSync, writeFileSync } from 'node:fs'
-import { readdir } from 'node:fs/promises'
+import { existsSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs'
 import type { FSWatcher } from 'chokidar'
 import chokidar from 'chokidar'
 import { join, relative, resolve } from 'pathe'
@@ -15,17 +14,14 @@ export function resolveOptions(options: Options = {}): ResolvedOptions {
   }
 }
 
-/**
- * Recursively scan a directory and return all file paths relative to the base
- */
-async function scanDir(dir: string, base: string): Promise<string[]> {
+function scanDirSync(dir: string, base: string): string[] {
   const files: string[] = []
-  const entries = await readdir(dir, { withFileTypes: true })
+  const entries = readdirSync(dir, { withFileTypes: true })
 
   for (const entry of entries) {
     const fullPath = join(dir, entry.name)
     if (entry.isDirectory()) {
-      files.push(...(await scanDir(fullPath, base)))
+      files.push(...scanDirSync(fullPath, base))
     } else if (entry.isFile()) {
       files.push(relative(base, fullPath))
     }
@@ -46,7 +42,7 @@ export async function loadTemplatesFromDir(
     return []
   }
 
-  const files = await scanDir(dir, dir)
+  const files = scanDirSync(dir, dir)
   const templates: ParsedTemplate[] = []
 
   for (const file of files) {
