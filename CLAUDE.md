@@ -33,3 +33,18 @@ Scaffold mirrors project structure:
 ```
 .scaffold/src/components/[...path].vue → src/components/**/*.vue
 ```
+
+## Nested Scaffolds
+
+`.scaffold/` folders can exist at any level. Deeper ones take priority:
+
+```
+project/.scaffold/              # depth 0 (root)
+src/modules/admin/.scaffold/    # depth 3 (wins for admin/*)
+```
+
+Key concepts:
+
+- `scopePrefix`: path from root to scaffold's parent (e.g., `src/modules/admin`)
+- `scopeDepth`: folder depth (higher = closer to file = wins)
+- Templates only match files within their scope
