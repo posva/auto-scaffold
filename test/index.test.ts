@@ -21,9 +21,11 @@ async function waitForFileContent(filePath: string, timeout = 2000): Promise<str
 }
 import {
   applyTemplate,
+  discoverScaffoldDirs,
   findTemplateForFile,
   getTemplateContent,
   isFileEmpty,
+  loadAllTemplates,
   loadTemplatesFromDir,
   mergeTemplates,
   resolveOptions,
@@ -585,6 +587,370 @@ describe('e2e', () => {
 
     // Verify NEW template content was applied (not cached old content)
     expect(readFileSync(testFile2, 'utf-8')).toBe(updatedContent)
+
+    await ctx.stop()
+  })
+})
+
+describe('nested scaffolds', () => {
+  let tempDir: string
+
+  beforeEach(() => {
+    tempDir = join(tmpdir(), `auto-scaffold-nested-${Date.now()}`)
+    mkdirSync(tempDir, { recursive: true })
+  })
+
+  afterEach(() => {
+    rmSync(tempDir, { recursive: true, force: true })
+  })
+
+  describe('discoverScaffoldDirs', () => {
+    it('finds root scaffold folder', () => {
+      const scaffoldDir = join(tempDir, '.scaffold')
+      mkdirSync(scaffoldDir, { recursive: true })
+
+      const sources = discoverScaffoldDirs(tempDir)
+      expect(sources).toHaveLength(1)
+      expect(sources[0].scaffoldDir).toBe(scaffoldDir)
+      expect(sources[0].scopeRoot).toBe(tempDir)
+      expect(sources[0].depth).toBe(0)
+    })
+
+    it('finds nested scaffold folders', () => {
+      // Create root scaffold
+      mkdirSync(join(tempDir, '.scaffold'), { recursive: true })
+      // Create nested scaffold
+      const nestedDir = join(tempDir, 'src/modules/admin')
+      mkdirSync(join(nestedDir, '.scaffold'), { recursive: true })
+
+      const sources = discoverScaffoldDirs(tempDir)
+      expect(sources).toHaveLength(2)
+
+      // Root scaffold
+      const rootSource = sources.find((s) => s.depth === 0)
+      expect(rootSource?.scopeRoot).toBe(tempDir)
+
+      // Nested scaffold (depth = 3: src -> modules -> admin)
+      const nestedSource = sources.find((s) => s.depth > 0)
+      expect(nestedSource?.scopeRoot).toBe(nestedDir)
+      expect(nestedSource?.depth).toBe(3)
+    })
+
+    it('ignores hidden directories', () => {
+      mkdirSync(join(tempDir, '.scaffold'), { recursive: true })
+      mkdirSync(join(tempDir, '.hidden/.scaffold'), { recursive: true })
+
+      const sources = discoverScaffoldDirs(tempDir)
+      expect(sources).toHaveLength(1)
+    })
+  })
+
+  describe('loadAllTemplates', () => {
+    it('loads templates from multiple scaffold folders', async () => {
+      // Root scaffold
+      const rootScaffold = join(tempDir, '.scaffold/src/components')
+      mkdirSync(rootScaffold, { recursive: true })
+      writeFileSync(join(rootScaffold, '[...path].vue'), '<template>root</template>')
+
+      // Nested scaffold
+      const nestedScaffold = join(tempDir, 'src/modules/admin/.scaffold/components')
+      mkdirSync(nestedScaffold, { recursive: true })
+      writeFileSync(join(nestedScaffold, '[...path].vue'), '<template>nested</template>')
+
+      const templates = await loadAllTemplates(tempDir)
+      expect(templates).toHaveLength(2)
+
+      // Root template
+      const rootTemplate = templates.find((t) => t.scopeDepth === 0)
+      expect(rootTemplate?.templatePath).toBe('src/components/[...path].vue')
+      expect(rootTemplate?.scopePrefix).toBe('')
+
+      // Nested template
+      const nestedTemplate = templates.find((t) => t.scopeDepth > 0)
+      expect(nestedTemplate?.templatePath).toBe('components/[...path].vue')
+      expect(nestedTemplate?.scopePrefix).toBe('src/modules/admin')
+    })
+  })
+
+  describe('scope-aware matching', () => {
+    it('matches file with scopePrefix', () => {
+      const template = parseTemplatePath(
+        'components/[...path].vue',
+        '/scaffold',
+        'src/modules/admin',
+        2,
+      )
+      expect(matchFile('src/modules/admin/components/Button.vue', template)).toEqual({
+        path: 'Button',
+      })
+    })
+
+    it('rejects file outside scope', () => {
+      const template = parseTemplatePath(
+        'components/[...path].vue',
+        '/scaffold',
+        'src/modules/admin',
+        2,
+      )
+      expect(matchFile('src/components/Button.vue', template)).toBeNull()
+    })
+
+    it('uses depth as tiebreaker for equal specificity', () => {
+      // Both templates have same specificity (1 static dir part, spread filename)
+      // Only difference is scopeDepth
+      const rootTemplate = parseTemplatePath('components/[...path].vue', '/root', '', 0)
+      const nestedTemplate = parseTemplatePath('components/[...path].vue', '/nested', '', 2)
+
+      const templates = [rootTemplate, nestedTemplate]
+      const result = findTemplateForFile('components/Button.vue', templates)
+
+      // Both have same specificity, deeper wins as tiebreaker
+      expect(result?.scopeDepth).toBe(2)
+    })
+
+    it('prefers static filename over deeper scaffold with spread', () => {
+      // Root: static filename (higher specificity)
+      const rootTemplate = parseTemplatePath('src/modules/admin/views/page.vue', '/root', '', 0)
+      // Nested: spread pattern (lower specificity, higher depth)
+      const nestedTemplate = parseTemplatePath(
+        'views/[...path].vue',
+        '/nested',
+        'src/modules/admin',
+        3,
+      )
+
+      const templates = [rootTemplate, nestedTemplate]
+      const result = findTemplateForFile('src/modules/admin/views/page.vue', templates)
+
+      // Static filename beats spread even though nested is deeper
+      expect(result?.templatePath).toBe('src/modules/admin/views/page.vue')
+      expect(result?.scopeDepth).toBe(0)
+    })
+
+    it('prefers [name].page.vue over [...path].vue at any depth', () => {
+      // Root: param with suffix (more specific filename)
+      const rootTemplate = parseTemplatePath('src/views/[name].page.vue', '/root', '', 0)
+      // Nested: spread pattern (less specific)
+      const nestedTemplate = parseTemplatePath('views/[...path].vue', '/nested', 'src', 1)
+
+      const templates = [rootTemplate, nestedTemplate]
+      const result = findTemplateForFile('src/views/home.page.vue', templates)
+
+      // [name].page.vue has more static filename parts, wins over [...path].vue
+      expect(result?.templatePath).toBe('src/views/[name].page.vue')
+    })
+  })
+
+  describe('inferWatchDirs with scope', () => {
+    it('combines scopePrefix with static prefix', () => {
+      const templates = [
+        parseTemplatePath('components/[...path].vue', '/scaffold', 'src/modules/admin', 2),
+        parseTemplatePath('src/views/[name].vue', '/scaffold', '', 0),
+      ]
+      const dirs = inferWatchDirs(templates)
+      expect(dirs).toContain('src/modules/admin/components')
+      expect(dirs).toContain('src/views')
+    })
+  })
+
+  describe('e2e nested scaffold', () => {
+    it('scaffolds using nested scaffold template', async () => {
+      // Root scaffold
+      const rootScaffold = join(tempDir, '.scaffold/src/components')
+      mkdirSync(rootScaffold, { recursive: true })
+      writeFileSync(join(rootScaffold, '[...path].vue'), '<template>root</template>')
+
+      // Nested scaffold in src/modules/admin
+      const adminDir = join(tempDir, 'src/modules/admin')
+      const nestedScaffold = join(adminDir, '.scaffold/components')
+      mkdirSync(nestedScaffold, { recursive: true })
+      writeFileSync(join(nestedScaffold, '[...path].vue'), '<template>nested</template>')
+
+      // Create target directory
+      const componentsDir = join(adminDir, 'components')
+      mkdirSync(componentsDir, { recursive: true })
+
+      // Load all templates
+      const templates = await loadAllTemplates(tempDir)
+      const options = resolveOptions()
+      const log = vi.fn()
+      const ctx = startWatchers(options, tempDir, templates, log)
+      await ctx.ready
+
+      // Create empty file in nested module
+      const testFile = join(componentsDir, 'Button.vue')
+      writeFileSync(testFile, '')
+
+      await new Promise((resolve) => setTimeout(resolve, 300))
+
+      // Should use nested template, not root
+      const content = readFileSync(testFile, 'utf-8')
+      expect(content).toBe('<template>nested</template>')
+
+      await ctx.stop()
+    })
+
+    it('falls back to root scaffold for files outside nested scope', async () => {
+      // Root scaffold
+      const rootScaffold = join(tempDir, '.scaffold/src/components')
+      mkdirSync(rootScaffold, { recursive: true })
+      writeFileSync(join(rootScaffold, '[...path].vue'), '<template>root</template>')
+
+      // Nested scaffold
+      const nestedScaffold = join(tempDir, 'src/modules/admin/.scaffold/components')
+      mkdirSync(nestedScaffold, { recursive: true })
+      writeFileSync(join(nestedScaffold, '[...path].vue'), '<template>nested</template>')
+
+      // Create target directory at root level
+      const componentsDir = join(tempDir, 'src/components')
+      mkdirSync(componentsDir, { recursive: true })
+
+      const templates = await loadAllTemplates(tempDir)
+      const options = resolveOptions()
+      const log = vi.fn()
+      const ctx = startWatchers(options, tempDir, templates, log)
+      await ctx.ready
+
+      // Create empty file at root level (not inside admin module)
+      const testFile = join(componentsDir, 'Header.vue')
+      writeFileSync(testFile, '')
+
+      await new Promise((resolve) => setTimeout(resolve, 300))
+
+      // Should use root template
+      const content = readFileSync(testFile, 'utf-8')
+      expect(content).toBe('<template>root</template>')
+
+      await ctx.stop()
+    })
+  })
+})
+
+describe('scaffold watching', () => {
+  let tempDir: string
+  let componentsDir: string
+
+  beforeEach(() => {
+    tempDir = join(tmpdir(), `auto-scaffold-watch-${Date.now()}`)
+    componentsDir = join(tempDir, 'src/components')
+    mkdirSync(componentsDir, { recursive: true })
+  })
+
+  afterEach(() => {
+    rmSync(tempDir, { recursive: true, force: true })
+  })
+
+  it('detects new template added to scaffold folder', async () => {
+    // Setup: Create .scaffold folder with initial template
+    const scaffoldDir = join(tempDir, '.scaffold/src/components')
+    mkdirSync(scaffoldDir, { recursive: true })
+    // Need an initial template so watcher is set up for src/components
+    writeFileSync(join(scaffoldDir, '[...path].vue'), '<template>initial</template>')
+
+    // Load templates
+    const templates = await loadAllTemplates(tempDir)
+    expect(templates).toHaveLength(1)
+
+    const options = resolveOptions()
+    const log = vi.fn()
+    const ctx = startWatchers(options, tempDir, templates, log)
+    await ctx.ready
+
+    // Add a NEW template to .scaffold (different pattern)
+    const templateContent = '<template>specific</template>'
+    writeFileSync(join(scaffoldDir, '[name].component.vue'), templateContent)
+
+    // Wait for watcher to detect
+    await new Promise((resolve) => setTimeout(resolve, 500))
+
+    // Templates array should have both templates now
+    expect(templates).toHaveLength(2)
+    expect(templates.some((t) => t.templatePath === 'src/components/[name].component.vue')).toBe(
+      true,
+    )
+
+    // Create empty file matching the NEW template pattern
+    const testFile = join(componentsDir, 'New.component.vue')
+    writeFileSync(testFile, '')
+
+    await new Promise((resolve) => setTimeout(resolve, 300))
+
+    // Should use the new specific template
+    const content = readFileSync(testFile, 'utf-8')
+    expect(content).toBe(templateContent)
+
+    await ctx.stop()
+  })
+
+  it('detects template removed from scaffold folder', async () => {
+    // Setup: Create .scaffold folder with template
+    const scaffoldDir = join(tempDir, '.scaffold/src/components')
+    mkdirSync(scaffoldDir, { recursive: true })
+    const templateFile = join(scaffoldDir, '[...path].vue')
+    writeFileSync(templateFile, '<template>to-remove</template>')
+
+    // Load templates
+    const templates = await loadAllTemplates(tempDir)
+    expect(templates).toHaveLength(1)
+
+    const options = resolveOptions()
+    const log = vi.fn()
+    const ctx = startWatchers(options, tempDir, templates, log)
+    await ctx.ready
+
+    // Remove the template
+    rmSync(templateFile)
+
+    // Wait for watcher to detect
+    await new Promise((resolve) => setTimeout(resolve, 500))
+
+    // Templates array should be empty now
+    expect(templates).toHaveLength(0)
+
+    // Create empty file - should NOT be scaffolded
+    const testFile = join(componentsDir, 'Orphan.vue')
+    writeFileSync(testFile, '')
+
+    await new Promise((resolve) => setTimeout(resolve, 300))
+
+    // File should remain empty (no template to apply)
+    const content = readFileSync(testFile, 'utf-8')
+    expect(content).toBe('')
+
+    await ctx.stop()
+  })
+
+  it('detects template content change in scaffold folder', async () => {
+    // Setup: Create .scaffold folder with template
+    const scaffoldDir = join(tempDir, '.scaffold/src/components')
+    mkdirSync(scaffoldDir, { recursive: true })
+    const templateFile = join(scaffoldDir, '[...path].vue')
+    writeFileSync(templateFile, '<template>original</template>')
+
+    // Load templates
+    const templates = await loadAllTemplates(tempDir)
+
+    const options = resolveOptions()
+    const log = vi.fn()
+    const ctx = startWatchers(options, tempDir, templates, log)
+    await ctx.ready
+
+    // Update template content (template is re-parsed on change event)
+    writeFileSync(templateFile, '<template>updated</template>')
+
+    await new Promise((resolve) => setTimeout(resolve, 500))
+
+    // Template should still exist (re-added after change)
+    expect(templates).toHaveLength(1)
+
+    // Create empty file - should use updated content
+    const testFile = join(componentsDir, 'Updated.vue')
+    writeFileSync(testFile, '')
+
+    await new Promise((resolve) => setTimeout(resolve, 300))
+
+    const content = readFileSync(testFile, 'utf-8')
+    expect(content).toBe('<template>updated</template>')
 
     await ctx.stop()
   })

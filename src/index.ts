@@ -2,7 +2,7 @@ import type { UnpluginFactory } from 'unplugin'
 import type { Options } from './entries/types'
 import type { WatcherContext } from './core'
 import { createUnplugin } from 'unplugin'
-import { loadTemplatesFromDir, mergeTemplates, resolveOptions, startWatchers } from './core'
+import { loadAllTemplates, mergeTemplates, resolveOptions, startWatchers } from './core'
 import { loadPresets } from './presets'
 
 export const unpluginFactory: UnpluginFactory<Options | undefined> = (options) => {
@@ -28,8 +28,8 @@ export const unpluginFactory: UnpluginFactory<Options | undefined> = (options) =
         // Load preset templates
         const presetTemplates = loadPresets(resolved.presets)
 
-        // Load user templates from .scaffold folder
-        const userTemplates = await loadTemplatesFromDir(resolved.scaffoldDir, root)
+        // Load user templates from all .scaffold folders (nested discovery)
+        const userTemplates = await loadAllTemplates(root, resolved.scaffoldDir)
 
         // Merge: user templates override presets
         const templates = mergeTemplates(presetTemplates, userTemplates)

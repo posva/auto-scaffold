@@ -1,4 +1,4 @@
-import { extname, basename, dirname } from 'pathe'
+import { extname, basename, dirname, join } from 'pathe'
 
 /**
  * A parsed segment of a template path pattern.
@@ -22,6 +22,10 @@ export interface ParsedTemplate {
   templatePath: string
   /** Absolute path to the scaffold directory containing this template */
   scaffoldDir: string
+  /** Path prefix from project root to scaffold's scope (e.g., 'src/modules/admin') */
+  scopePrefix: string
+  /** Depth of scaffold (0 = root, higher = closer to file, higher priority) */
+  scopeDepth: number
 }
 
 const BRACKET_REGEX = /\[(?:\.\.\.)?([^\]]+)\]/g
@@ -70,7 +74,12 @@ function parseSegment(segment: string): PatternSegment[] {
 /**
  * Parse a template file path into a {@link ParsedTemplate}.
  */
-export function parseTemplatePath(relativePath: string, scaffoldDir: string): ParsedTemplate {
+export function parseTemplatePath(
+  relativePath: string,
+  scaffoldDir: string,
+  scopePrefix = '',
+  scopeDepth = 0,
+): ParsedTemplate {
   const ext = extname(relativePath)
   const dir = dirname(relativePath)
   const file = basename(relativePath, ext)
@@ -92,6 +101,8 @@ export function parseTemplatePath(relativePath: string, scaffoldDir: string): Pa
     extension: ext,
     templatePath: relativePath,
     scaffoldDir,
+    scopePrefix,
+    scopeDepth,
   }
 }
 
@@ -178,8 +189,21 @@ export function matchFile(
   // Extension must match
   if (ext !== template.extension) return null
 
-  const dir = dirname(filePath)
-  const file = basename(filePath, ext)
+  // Handle scope-aware matching: strip scopePrefix from file path
+  let effectivePath = filePath
+  if (template.scopePrefix) {
+    if (filePath.startsWith(template.scopePrefix + '/')) {
+      effectivePath = filePath.slice(template.scopePrefix.length + 1)
+    } else if (filePath === template.scopePrefix) {
+      effectivePath = ''
+    } else {
+      // File is not within this template's scope
+      return null
+    }
+  }
+
+  const dir = dirname(effectivePath)
+  const file = basename(effectivePath, ext)
   const pathSegments = dir === '.' ? [] : dir.split('/')
 
   const captures: Record<string, string> = {}
@@ -274,8 +298,14 @@ export function inferWatchDirs(templates: ParsedTemplate[]): string[] {
 
   for (const template of templates) {
     const prefix = getStaticPrefix(template)
-    if (prefix) {
-      dirs.add(prefix)
+    // Combine scope prefix with template's static prefix
+    const fullPrefix = template.scopePrefix
+      ? prefix
+        ? join(template.scopePrefix, prefix)
+        : template.scopePrefix
+      : prefix
+    if (fullPrefix) {
+      dirs.add(fullPrefix)
     }
   }
 

@@ -1,6 +1,6 @@
 import type { Options, PresetName, ResolvedOptions } from './entries/types'
 import type { ParsedTemplate } from './patterns'
-import { existsSync, readFileSync, statSync, writeFileSync } from 'node:fs'
+import { existsSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs'
 import type { FSWatcher } from 'chokidar'
 import chokidar from 'chokidar'
 import { join, relative, resolve } from 'pathe'
@@ -32,6 +32,54 @@ export function resolveOptions(options: Options = {}): ResolvedOptions {
 }
 
 /**
+ * Represents a discovered .scaffold folder with its scope.
+ */
+export interface ScaffoldSource {
+  /** Absolute path to .scaffold folder */
+  scaffoldDir: string
+  /** Absolute path to the directory containing .scaffold (scope root) */
+  scopeRoot: string
+  /** Depth: 0 = root scaffold, higher = closer to file (higher priority) */
+  depth: number
+}
+
+/**
+ * Recursively discover all .scaffold folders in the project tree.
+ */
+export function discoverScaffoldDirs(
+  root: string,
+  scaffoldDirName = '.scaffold',
+): ScaffoldSource[] {
+  const sources: ScaffoldSource[] = []
+
+  function scan(dir: string, depth: number) {
+    const scaffoldPath = join(dir, scaffoldDirName)
+    if (existsSync(scaffoldPath) && statSync(scaffoldPath).isDirectory()) {
+      sources.push({
+        scaffoldDir: scaffoldPath,
+        scopeRoot: dir,
+        depth,
+      })
+    }
+
+    // Continue scanning subdirectories (skip .scaffold itself and hidden dirs)
+    try {
+      const entries = readdirSync(dir, { withFileTypes: true })
+      for (const entry of entries) {
+        if (entry.isDirectory() && entry.name !== scaffoldDirName && !entry.name.startsWith('.')) {
+          scan(join(dir, entry.name), depth + 1)
+        }
+      }
+    } catch {
+      // Ignore unreadable directories
+    }
+  }
+
+  scan(root, 0)
+  return sources
+}
+
+/**
  * Merge templates from presets and user config.
  * User templates override presets with the same templatePath.
  */
@@ -55,11 +103,13 @@ export function mergeTemplates(
 }
 
 /**
- * Load templates from the scaffold directory, parsing paths into patterns.
+ * Load templates from a scaffold directory, parsing paths into patterns.
  */
 export async function loadTemplatesFromDir(
   scaffoldDir: string,
   root: string,
+  scopePrefix = '',
+  scopeDepth = 0,
 ): Promise<ParsedTemplate[]> {
   const dir = resolve(root, scaffoldDir)
   if (!existsSync(dir)) {
@@ -67,7 +117,29 @@ export async function loadTemplatesFromDir(
   }
 
   const files = scanDirSync(dir, dir)
-  return files.map((file) => parseTemplatePath(file, dir))
+  return files.map((file) => parseTemplatePath(file, dir, scopePrefix, scopeDepth))
+}
+
+/**
+ * Discover all .scaffold folders and load templates from each.
+ */
+export async function loadAllTemplates(
+  root: string,
+  scaffoldDirName = '.scaffold',
+): Promise<ParsedTemplate[]> {
+  const sources = discoverScaffoldDirs(root, scaffoldDirName)
+  const allTemplates: ParsedTemplate[] = []
+
+  for (const source of sources) {
+    // Compute scope prefix: relative path from project root to scope root
+    const scopePrefix = source.scopeRoot === root ? '' : relative(root, source.scopeRoot)
+    const files = scanDirSync(source.scaffoldDir, source.scaffoldDir)
+    for (const file of files) {
+      allTemplates.push(parseTemplatePath(file, source.scaffoldDir, scopePrefix, source.depth))
+    }
+  }
+
+  return allTemplates
 }
 
 /**
@@ -133,7 +205,21 @@ function getTemplateSpecificity(template: ParsedTemplate): number[] {
 
   const isFullyStatic = paramParts === 0 && spreadParts === 0 ? 1 : 0
 
-  return [isFullyStatic, staticDirParts, staticFilenameParts, -spreadParts, -paramParts]
+  // Specificity first, depth as tiebreaker:
+  // - Exact match (fully static) always wins
+  // - More specific filename parts
+  // - More specific directory parts
+  // - Fewer wildcards (spread patterns)
+  // - Fewer params
+  // - Depth only breaks ties (deeper scaffolds closer to file)
+  return [
+    isFullyStatic,
+    staticFilenameParts,
+    staticDirParts,
+    -spreadParts,
+    -paramParts,
+    template.scopeDepth,
+  ]
 }
 
 function compareSpecificity(a: number[], b: number[]): number {
@@ -165,6 +251,7 @@ export interface WatcherContext {
 
 /**
  * Start file watchers and apply templates for new empty files.
+ * Also watches .scaffold directories for template changes.
  */
 export function startWatchers(
   options: ResolvedOptions,
@@ -176,6 +263,70 @@ export function startWatchers(
   const readyPromises: Promise<void>[] = []
   const usePolling = process.env.NODE_ENV === 'test' || Boolean(process.env.VITEST)
   const initialFiles = new Set<string>()
+
+  // Watch scaffold directories for template changes
+  const sources = discoverScaffoldDirs(root, options.scaffoldDir)
+  for (const source of sources) {
+    const scaffoldWatcher = chokidar.watch(source.scaffoldDir, {
+      ignoreInitial: true,
+      usePolling,
+      depth: 99,
+    })
+    readyPromises.push(
+      new Promise((resolve) => {
+        scaffoldWatcher.once('ready', resolve)
+      }),
+    )
+
+    const scopePrefix = source.scopeRoot === root ? '' : relative(root, source.scopeRoot)
+
+    // Handle template file added or changed
+    const handleTemplateChange = (filePath: string) => {
+      const templatePath = relative(source.scaffoldDir, filePath)
+      // Skip non-files (directories)
+      try {
+        if (!statSync(filePath).isFile()) return
+      } catch {
+        return
+      }
+
+      // Remove existing template with same path and scope
+      const existingIndex = templates.findIndex(
+        (t) => t.templatePath === templatePath && t.scaffoldDir === source.scaffoldDir,
+      )
+      if (existingIndex !== -1) {
+        templates.splice(existingIndex, 1)
+      }
+
+      // Add new/updated template
+      const newTemplate = parseTemplatePath(
+        templatePath,
+        source.scaffoldDir,
+        scopePrefix,
+        source.depth,
+      )
+      templates.push(newTemplate)
+      log(`[auto-scaffold] Template ${existingIndex !== -1 ? 'updated' : 'added'}: ${templatePath}`)
+    }
+
+    // Handle template file removed
+    const handleTemplateRemove = (filePath: string) => {
+      const templatePath = relative(source.scaffoldDir, filePath)
+      const existingIndex = templates.findIndex(
+        (t) => t.templatePath === templatePath && t.scaffoldDir === source.scaffoldDir,
+      )
+      if (existingIndex !== -1) {
+        templates.splice(existingIndex, 1)
+        log(`[auto-scaffold] Template removed: ${templatePath}`)
+      }
+    }
+
+    scaffoldWatcher.on('add', handleTemplateChange)
+    scaffoldWatcher.on('change', handleTemplateChange)
+    scaffoldWatcher.on('unlink', handleTemplateRemove)
+
+    watchers.push(scaffoldWatcher)
+  }
 
   const watchDirs = inferWatchDirs(templates)
 
