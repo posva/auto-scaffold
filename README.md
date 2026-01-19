@@ -2,109 +2,87 @@
 
 [![NPM version](https://img.shields.io/npm/v/auto-scaffold?color=a1b858&label=)](https://www.npmjs.com/package/auto-scaffold)
 
-Dev-only plugin that automatically populates empty files with templates when they're created.
-
-## Features
-
-- Watch folders for new empty files (inferred from templates)
-- Auto-populate with configurable templates
-- Support for any file extension (.vue, .ts, .tsx, etc.)
-- Templates stored in `.scaffold/` folder
-- Built-in presets for common project structures
-- Dev-only - doesn't run during builds
-
-## Install
+Create empty file → get boilerplate. That's it.
 
 ```bash
 npm i -D auto-scaffold
 ```
 
-## Usage
+## Setup
 
-Create a `.scaffold` folder in your project root with template files:
-
-```
-.scaffold/
-├── src/components/[...path].vue         # Template for components (nested or not)
-├── src/pages/[...path].component.vue    # Allows partial names
-├── src/composables/[name].ts            # Template for direct children
-└── ...
-```
-
-Example `.scaffold/src/components/[...path].component.vue`:
-
-```vue
-<script setup lang="ts"></script>
-
-<template>
-  <div></div>
-</template>
-```
-
-<details>
-<summary>Vite</summary><br>
+Add to your Vite config:
 
 ```ts
-// vite.config.ts
 import AutoScaffold from 'auto-scaffold/vite'
 
 export default defineConfig({
-  plugins: [
-    AutoScaffold({
-      // Optional: change scaffold directory (default: '.scaffold')
-      scaffoldDir: '.scaffold',
-      // Optional: use built-in presets
-      // presets: ['vue', 'pinia'],
-    }),
-  ],
+  plugins: [AutoScaffold()],
 })
 ```
-
-<br></details>
 
 <details>
-<summary>Nuxt</summary><br>
+<summary>Nuxt</summary>
 
 ```ts
-// nuxt.config.ts
 export default defineNuxtConfig({
   modules: ['auto-scaffold/nuxt'],
-  autoScaffold: {
-    scaffoldDir: '.scaffold',
-    // presets: ['vue-router'],
-  },
 })
 ```
 
-<br></details>
+</details>
+
+## Templates
+
+Drop templates in `.scaffold/` mirroring your project structure:
+
+```
+.scaffold/
+├── src/components/[...path].vue    # any depth
+├── src/composables/[name].ts       # direct children only
+└── src/stores/[name].store.ts      # with suffix
+```
+
+Create `src/components/Button.vue` (empty) → filled with template content.
+
+### Nested Scaffolds
+
+Place `.scaffold/` folders anywhere. Deeper ones win:
+
+```
+project/
+├── .scaffold/src/components/[...path].vue      # default
+└── src/modules/admin/
+    ├── .scaffold/components/[...path].vue      # wins for admin/*
+    └── components/Button.vue                   # uses admin template
+```
+
+### Pattern Syntax
+
+| Pattern           | Matches                          |
+| ----------------- | -------------------------------- |
+| `[name]`          | Single segment (direct children) |
+| `[...path]`       | Any depth (0+ nested)            |
+| `[name].store.ts` | With static suffix               |
 
 ## Presets
 
-Built-in presets provide templates without requiring a local `.scaffold/` folder.
-Later presets override earlier ones, and user templates (from `.scaffold/`) always win.
+Skip `.scaffold/` setup with built-in templates:
 
-Available presets:
+```ts
+AutoScaffold({ presets: ['vue', 'pinia'] })
+```
 
-- `vue` (components)
-- `vue-router` (pages)
-- `pinia` (stores)
-- `pinia-colada` (queries)
+Available: `vue`, `vue-router`, `pinia`, `pinia-colada`
+
+User templates always override presets.
 
 ## Options
 
-| Option        | Type                           | Default       | Description                                        |
-| ------------- | ------------------------------ | ------------- | -------------------------------------------------- |
-| `scaffoldDir` | `string`                       | `'.scaffold'` | Directory containing template files                |
-| `enabled`     | `boolean`                      | `true`        | Enable/disable the plugin                          |
-| `presets`     | `PresetName` or `PresetName[]` | `[]`          | Built-in presets to apply (later presets override) |
-
-## How It Works
-
-1. When the dev server starts, auto-scaffold loads templates from `.scaffold/` folder
-2. It watches the inferred directories for file changes
-3. When an empty file is created (0 bytes), it matches the path to a template
-4. If multiple templates match, the most specific pattern wins
-5. The template content is automatically written to the file
+| Option        | Default       | Description          |
+| ------------- | ------------- | -------------------- |
+| `scaffoldDir` | `'.scaffold'` | Template folder name |
+| `presets`     | `[]`          | Built-in presets     |
+| `enabled`     | `true`        | Toggle plugin        |
 
 ## License
 
