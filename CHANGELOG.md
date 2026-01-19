@@ -1,3 +1,9 @@
+## [0.2.1](https://github.com/posva/auto-scaffold/compare/v0.2.0...v0.2.1) (2026-01-19)
+
+### Bug Fixes
+
+- nested scaffold detection and priority ([0e44d9e](https://github.com/posva/auto-scaffold/commit/0e44d9e70a4156daaf19bdc4ec16fce44f542f1c))
+
 # [0.2.0](https://github.com/posva/auto-scaffold/compare/v0.1.1...v0.2.0) (2026-01-14)
 
 ### Bug Fixes
