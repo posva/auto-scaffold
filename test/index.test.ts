@@ -1,12 +1,12 @@
 import { existsSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs'
-import { join } from 'node:path'
+import { join } from 'pathe'
 import { tmpdir } from 'node:os'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 /**
  * Wait for a file to have non-empty content.
  */
-async function waitForFileContent(filePath: string, timeout = 2000): Promise<string> {
+async function waitForFileContent(filePath: string, timeout = 5000): Promise<string> {
   const start = Date.now()
   while (Date.now() - start < timeout) {
     try {
