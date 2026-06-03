@@ -1,3 +1,7 @@
+# [1.0.0](https://github.com/posva/auto-scaffold/compare/v0.2.1...v1.0.0) (2026-06-03)
+
+Upgrade to unplugin v3
+
 ## [0.2.1](https://github.com/posva/auto-scaffold/compare/v0.2.0...v0.2.1) (2026-01-19)
 
 ### Bug Fixes
