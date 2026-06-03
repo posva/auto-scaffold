@@ -5,6 +5,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 /**
  * Wait for a file to have non-empty content.
+ *
+ * Polls instead of using a fixed sleep: chokidar's watch latency varies on slow
+ * CI runners, so a fixed delay flakes (assertion runs before the watcher fires).
  */
 async function waitForFileContent(filePath: string, timeout = 5000): Promise<string> {
   const start = Date.now()
@@ -18,6 +21,20 @@ async function waitForFileContent(filePath: string, timeout = 5000): Promise<str
     await new Promise((r) => setTimeout(r, 50))
   }
   return readFileSync(filePath, 'utf-8')
+}
+
+/**
+ * Poll until `predicate` returns truthy or the timeout elapses.
+ *
+ * Polls instead of using a fixed sleep: chokidar's watch latency varies on slow
+ * CI runners, so a fixed delay flakes (assertion runs before the watcher fires).
+ */
+async function waitFor(predicate: () => boolean, timeout = 5000): Promise<void> {
+  const start = Date.now()
+  while (Date.now() - start < timeout) {
+    if (predicate()) return
+    await new Promise((r) => setTimeout(r, 50))
+  }
 }
 import {
   applyTemplate,
@@ -427,11 +444,10 @@ describe('e2e', () => {
     writeFileSync(testFile, '')
 
     // Wait for watcher to process (fs.watch is async)
-    await new Promise((resolve) => setTimeout(resolve, 500))
+    const content = await waitForFileContent(testFile)
 
     // Verify template was applied
     expect(log).toHaveBeenCalledWith('[auto-scaffold] Scaffolding TestComponent.vue')
-    const content = readFileSync(testFile, 'utf-8')
     expect(content).toBe(templateContent)
 
     // Cleanup
@@ -459,9 +475,7 @@ describe('e2e', () => {
     const testFile = join(nestedDir, 'Input.vue')
     writeFileSync(testFile, '')
 
-    await new Promise((resolve) => setTimeout(resolve, 200))
-
-    const content = readFileSync(testFile, 'utf-8')
+    const content = await waitForFileContent(testFile)
     expect(content).toBe(templateContent)
     expect(log).toHaveBeenCalledWith('[auto-scaffold] Scaffolding forms/Input.vue')
 
@@ -544,10 +558,8 @@ describe('e2e', () => {
     const testFile = join(componentsDir, 'Override.vue')
     writeFileSync(testFile, '')
 
-    await new Promise((resolve) => setTimeout(resolve, 500))
-
     // Verify user template was applied, not preset
-    const content = readFileSync(testFile, 'utf-8')
+    const content = await waitForFileContent(testFile)
     expect(content).toBe(userContent)
 
     await ctx.stop()
@@ -571,10 +583,9 @@ describe('e2e', () => {
     // Create first empty file
     const testFile1 = join(componentsDir, 'First.vue')
     writeFileSync(testFile1, '')
-    await new Promise((resolve) => setTimeout(resolve, 300))
 
     // Verify initial template was applied
-    expect(readFileSync(testFile1, 'utf-8')).toBe(initialContent)
+    expect(await waitForFileContent(testFile1)).toBe(initialContent)
 
     // Update the scaffold template file
     const updatedContent = '<template>updated</template>'
@@ -583,10 +594,9 @@ describe('e2e', () => {
     // Create second empty file
     const testFile2 = join(componentsDir, 'Second.vue')
     writeFileSync(testFile2, '')
-    await new Promise((resolve) => setTimeout(resolve, 300))
 
     // Verify NEW template content was applied (not cached old content)
-    expect(readFileSync(testFile2, 'utf-8')).toBe(updatedContent)
+    expect(await waitForFileContent(testFile2)).toBe(updatedContent)
 
     await ctx.stop()
   })
@@ -781,10 +791,8 @@ describe('nested scaffolds', () => {
       const testFile = join(componentsDir, 'Button.vue')
       writeFileSync(testFile, '')
 
-      await new Promise((resolve) => setTimeout(resolve, 300))
-
       // Should use nested template, not root
-      const content = readFileSync(testFile, 'utf-8')
+      const content = await waitForFileContent(testFile)
       expect(content).toBe('<template>nested</template>')
 
       await ctx.stop()
@@ -815,10 +823,8 @@ describe('nested scaffolds', () => {
       const testFile = join(componentsDir, 'Header.vue')
       writeFileSync(testFile, '')
 
-      await new Promise((resolve) => setTimeout(resolve, 300))
-
       // Should use root template
-      const content = readFileSync(testFile, 'utf-8')
+      const content = await waitForFileContent(testFile)
       expect(content).toBe('<template>root</template>')
 
       await ctx.stop()
@@ -861,7 +867,7 @@ describe('scaffold watching', () => {
     writeFileSync(join(scaffoldDir, '[name].component.vue'), templateContent)
 
     // Wait for watcher to detect
-    await new Promise((resolve) => setTimeout(resolve, 500))
+    await waitFor(() => templates.length === 2)
 
     // Templates array should have both templates now
     expect(templates).toHaveLength(2)
@@ -873,10 +879,8 @@ describe('scaffold watching', () => {
     const testFile = join(componentsDir, 'New.component.vue')
     writeFileSync(testFile, '')
 
-    await new Promise((resolve) => setTimeout(resolve, 300))
-
     // Should use the new specific template
-    const content = readFileSync(testFile, 'utf-8')
+    const content = await waitForFileContent(testFile)
     expect(content).toBe(templateContent)
 
     await ctx.stop()
@@ -902,7 +906,7 @@ describe('scaffold watching', () => {
     rmSync(templateFile)
 
     // Wait for watcher to detect
-    await new Promise((resolve) => setTimeout(resolve, 500))
+    await waitFor(() => templates.length === 0)
 
     // Templates array should be empty now
     expect(templates).toHaveLength(0)
@@ -947,9 +951,7 @@ describe('scaffold watching', () => {
     const testFile = join(componentsDir, 'Updated.vue')
     writeFileSync(testFile, '')
 
-    await new Promise((resolve) => setTimeout(resolve, 300))
-
-    const content = readFileSync(testFile, 'utf-8')
+    const content = await waitForFileContent(testFile)
     expect(content).toBe('<template>updated</template>')
 
     await ctx.stop()
