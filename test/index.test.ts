@@ -9,7 +9,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
  * Polls instead of using a fixed sleep: chokidar's watch latency varies on slow
  * CI runners, so a fixed delay flakes (assertion runs before the watcher fires).
  */
-async function waitForFileContent(filePath: string, timeout = 5000): Promise<string> {
+async function waitForFileContent(filePath: string, timeout = 15_000): Promise<string> {
   const start = Date.now()
   while (Date.now() - start < timeout) {
     try {
@@ -29,7 +29,7 @@ async function waitForFileContent(filePath: string, timeout = 5000): Promise<str
  * Polls instead of using a fixed sleep: chokidar's watch latency varies on slow
  * CI runners, so a fixed delay flakes (assertion runs before the watcher fires).
  */
-async function waitFor(predicate: () => boolean, timeout = 5000): Promise<void> {
+async function waitFor(predicate: () => boolean, timeout = 15_000): Promise<void> {
   const start = Date.now()
   while (Date.now() - start < timeout) {
     if (predicate()) return
