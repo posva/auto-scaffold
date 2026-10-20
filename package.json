@@ -2,7 +2,7 @@
   "name": "auto-scaffold",
   "type": "module",
   "version": "1.0.0",
-  "packageManager": "pnpm@12.9.1",
+  "packageManager": "pnpm@12.14.0",
   "description": "",
   "license": "MIT",
   "homepage": "https://github.com/posva/auto-scaffold#readme",
