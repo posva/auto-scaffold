@@ -7,7 +7,7 @@ export type PresetName = 'vue' | 'vue-router' | 'pinia' | 'pinia-colada'
 export interface Options {
   /** Path to scaffold folder (default: '.scaffold'). */
   scaffoldDir?: string
-  /** Enable/disable plugin (default: true in dev, false otherwise). */
+  /** Enable the plugin in the dev server (default: true). */
   enabled?: boolean
   /** Built-in presets to apply. Later presets override earlier ones. */
   presets?: PresetName | PresetName[]

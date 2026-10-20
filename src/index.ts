@@ -13,17 +13,16 @@ export const unpluginFactory: UnpluginFactory<Options | undefined> = (options) =
     name: 'auto-scaffold',
 
     vite: {
+      apply(_config, { command, isPreview }) {
+        return command === 'serve' && !isPreview && (options?.enabled ?? true)
+      },
+
       configResolved(config) {
         root = config.root
       },
 
       async configureServer(server) {
         const resolved = resolveOptions(options)
-
-        // Only enable in serve mode (dev)
-        if (!resolved.enabled) {
-          return
-        }
 
         // Load preset templates
         const presetTemplates = loadPresets(resolved.presets)
