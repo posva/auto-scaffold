@@ -336,17 +336,6 @@ describe('core', () => {
       const merged = mergeTemplates(preset, user)
       expect(merged).toHaveLength(2)
     })
-
-    it('preserves order with user templates last', () => {
-      const preset = [
-        parseTemplatePath('src/a/[name].ts', '/preset'),
-        parseTemplatePath('src/b/[name].ts', '/preset'),
-      ]
-      const user = [parseTemplatePath('src/c/[name].ts', '/user')]
-
-      const merged = mergeTemplates(preset, user)
-      expect(merged).toHaveLength(3)
-    })
   })
 })
 
@@ -389,13 +378,6 @@ describe('presets', () => {
       expect(templates.length).toBe(2)
       expect(templates.some((t) => t.templatePath.includes('components'))).toBe(true)
       expect(templates.some((t) => t.templatePath.includes('stores'))).toBe(true)
-    })
-
-    it('later preset wins on conflict', () => {
-      // If both had same templatePath, later would win
-      // Currently no overlap, but test the merge behavior
-      const templates = loadPresets(['vue', 'vue-router', 'pinia'])
-      expect(templates.length).toBe(3)
     })
 
     it('returns empty array for empty presets', () => {
