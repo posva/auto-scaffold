@@ -16,10 +16,12 @@ export default defineNuxtModule<ModuleOptions>({
   defaults: {
     // ...default options
   },
-  setup(options, _nuxt) {
+  setup(options, nuxt) {
+    if (!nuxt.options.dev || options.enabled === false) {
+      return
+    }
+
     addVitePlugin(() => vite(options))
     addWebpackPlugin(() => webpack(options))
-
-    // ...
   },
 })
