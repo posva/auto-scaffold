@@ -1,3 +1,10 @@
+## [1.0.1](https://github.com/posva/auto-scaffold/compare/v1.0.0...v1.0.1) (2026-10-20)
+
+### Bug Fixes
+
+- run scaffolding only in the dev server ([f279269](https://github.com/posva/auto-scaffold/commit/f27926962aa8bcc5bd1366985344056c12406435))
+- skip framework adapters outside development ([63841e2](https://github.com/posva/auto-scaffold/commit/63841e2a0a54a3da448646afd33866163f75c75a))
+
 # [1.0.0](https://github.com/posva/auto-scaffold/compare/v0.2.1...v1.0.0) (2026-06-03)
 
 Upgrade to unplugin v3
